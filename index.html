@@ -14,7 +14,7 @@
       --accent:#D9F107; --input:#2a2a47; --border:#3f3f61; --danger:#ff8c8c; --success:#8cff8c;
     }
     html,body{height:100%}
-    html{-webkit-text-size-adjust:100%} /* iOS 避免自動縮放字體 */
+    html{-webkit-text-size-adjust:100%}
     body{
       font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
       background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
@@ -30,8 +30,8 @@
     .form-group{display:grid; gap:8px}
     label{font-weight:700; font-size:14px}
     input,select,textarea,button{
-      font:inherit; /* 讓行動裝置使用同字級 */
-      font-size:16px; /* iOS: >=16px 才不會 focus 放大 */
+      font:inherit;
+      font-size:16px; /* iOS 避免 focus 放大 */
       width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border);
       background:var(--input); color:var(--text); box-sizing:border-box;
     }
@@ -108,15 +108,18 @@
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
-    // ====== 設定你的 Apps Script Web App URL（/exec 結尾）======
+    // ====== 你的 Apps Script Web App URL（/exec 結尾）======
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
+    // 與後端 doGet 對齊的 action 名稱
+    const SLOTS_ACTION = 'slots';     // 取時段
+    const RESERVE_ACTION = 'reserve'; // 建立預約
 
     // ====== DOM ======
-    const form   = document.getElementById('form');
-    const dateEl = document.getElementById('datepicker');
-    const slotEl = document.getElementById('slot');
+    const form     = document.getElementById('form');
+    const dateEl   = document.getElementById('datepicker');
+    const slotEl   = document.getElementById('slot');
     const statusEl = document.getElementById('status');
-    const submitBtn = document.getElementById('submit');
+    const submitBtn= document.getElementById('submit');
 
     // ====== Litepicker ======
     const today = new Date();
@@ -142,9 +145,16 @@
     async function fetchSlots(dateStr) {
       setSelectLoading();
       try {
-        const url = `${APPS_SCRIPT_URL}?action=getSlots&date=${encodeURIComponent(dateStr)}`;
+        const url = `${APPS_SCRIPT_URL}?action=${encodeURIComponent(SLOTS_ACTION)}&date=${encodeURIComponent(dateStr)}`;
+        console.log('[fetchSlots] GET', url);
         const res = await fetch(url, { method: 'GET', mode: 'cors' });
-        const json = await res.json();
+        const text = await res.text();
+        // 有些 Apps Script 例外時會回純文字，保險起見先嘗試 JSON 解析
+        let json;
+        try { json = JSON.parse(text); } catch(_) {
+          throw new Error(`非預期回應：${text?.slice(0,120) || '無內容'}`);
+        }
+
         if (!json.success) throw new Error(json.message || '無法載入時段');
 
         const slots = json.data || {};
@@ -161,6 +171,7 @@
           slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k));
         });
       } catch (err) {
+        console.error('[fetchSlots] error:', err);
         slotEl.innerHTML = `<option value="">無法載入時段</option>`;
         slotEl.disabled = true;
         toast(err.message || '連線失敗', 'error');
@@ -192,7 +203,7 @@
       try {
         // 使用 x-www-form-urlencoded 避免 CORS 預檢
         const params = new URLSearchParams();
-        params.set('action','reserve');
+        params.set('action', RESERVE_ACTION);
         params.set('item',  document.getElementById('item').value);
         params.set('date',  dateEl.value);
         params.set('time',  slotEl.value);
@@ -201,13 +212,18 @@
         params.set('email', document.getElementById('email').value);
         params.set('memo',  document.getElementById('memo').value || '');
 
+        console.log('[reserve] POST', APPS_SCRIPT_URL, params.toString());
         const res  = await fetch(APPS_SCRIPT_URL, {
           method:'POST',
           headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
           body: params,
           mode:'cors',
         });
-        const json = await res.json();
+        const text = await res.text();
+        let json;
+        try { json = JSON.parse(text); } catch(_) {
+          throw new Error(`非預期回應：${text?.slice(0,120) || '無內容'}`);
+        }
 
         if (json.success) {
           toast(json.message || '預約成功！', 'success');
@@ -219,6 +235,7 @@
         }
 
       } catch (err) {
+        console.error('[reserve] error:', err);
         toast(err.message || '伺服器錯誤，請稍後再試。', 'error');
       } finally {
         submitBtn.disabled = false;
@@ -235,8 +252,7 @@
       statusEl.style.display = msg ? 'block' : 'none';
     }
 
-    // 行動裝置 UX 細節（iOS 取消點擊放大行為重點已由 font-size:16px 達成）
-    // 額外：避免雙擊放大
+    // 行動裝置 UX：避免雙擊放大（已以 16px 解決 focus 放大）
     let lastTouch = 0;
     document.addEventListener('touchend', (e)=>{
       const now = Date.now();
