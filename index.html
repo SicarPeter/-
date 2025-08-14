@@ -12,44 +12,65 @@
     :root{
       --bg:#191935; --card:#1f1f3f; --text:#f0f0f0; --muted:#9aa0b4;
       --accent:#D9F107; --input:#2a2a47; --border:#3f3f61; --danger:#ff8c8c; --success:#8cff8c;
+      --control-h: 48px; /* 所有欄位高度一致 */
+      --radius: 10px;
     }
     html,body{height:100%}
     html{-webkit-text-size-adjust:100%}
+
     body{
       font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
-      background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
-      min-height:100svh; padding:16px;
+      background:var(--bg); color:var(--text); margin:0;
+      display:flex; justify-content:center; /* 手機會改為置頂 */
+      min-height:100svh;
+      padding: max(16px, env(safe-area-inset-top) + 12px) 16px 24px;
     }
     .container{
-      width:100%; max-width:720px; background:var(--card); border-radius:14px; padding:24px;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      width:100%; max-width:720px; background:var(--card);
+      border-radius:14px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,.35);
     }
     h1{margin:0 0 6px; font-size:clamp(22px,4.2vw,32px); color:var(--accent); text-align:center; font-weight:800;}
     .sub{margin:0 0 18px; text-align:center; color:var(--muted); font-size:14px}
+
     .grid{display:grid; gap:14px}
-    .form-group{display:grid; gap:8px}
+    .row{display:grid; gap:12px; grid-template-columns:1fr 1fr}
+    .form-group{display:grid; gap:8px; min-width:0;} /* min-width:0 防溢出 */
     label{font-weight:700; font-size:14px}
+
     input,select,textarea,button{
-      font:inherit;
-      font-size:16px;
-      width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border);
-      background:var(--input); color:var(--text); box-sizing:border-box;
+      font:inherit; font-size:16px; /* iOS 防放大 */
+      width:100%; box-sizing:border-box; border-radius:var(--radius);
+      border:1px solid var(--border); background:var(--input); color:var(--text);
+    }
+    input,select{ height:var(--control-h); padding:0 14px; line-height:var(--control-h); }
+    textarea{ padding:12px 14px; resize:vertical; }
+    select{
+      -webkit-appearance:none; -moz-appearance:none; appearance:none;
+      background-image: linear-gradient(45deg,transparent 50%,#aaa 50%),
+                        linear-gradient(135deg,#aaa 50%,transparent 50%),
+                        linear-gradient(to right, transparent, transparent);
+      background-position: right 12px center, right 6px center, right 32px center;
+      background-size: 8px 8px, 8px 8px, 1px 100%;
+      background-repeat: no-repeat;
     }
     input::placeholder, textarea::placeholder{color:#b8bed0}
-    input:focus,select:focus,textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(217,241,7,.25)}
+    input:focus,select:focus,textarea:focus{
+      outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(217,241,7,.25)
+    }
     button{
-      background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer; padding:14px 16px;
+      height:calc(var(--control-h) + 4px); padding:0 16px;
+      background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer;
     }
     button:disabled{opacity:.6; cursor:not-allowed}
-    .row{display:grid; gap:12px; grid-template-columns:1fr 1fr}
-    .triple{display:grid; gap:12px; grid-template-columns:1fr 1fr 1fr}
     .help{color:var(--muted); font-size:12px}
     #status{display:none; margin-top:10px; font-weight:700; text-align:center}
     #status.success{display:block; color:var(--success)}
     #status.error{display:block; color:var(--danger)}
+
     @media (max-width:720px){
+      body{ align-items:flex-start; } /* 手機置頂顯示，避免標題被頂掉 */
       .container{padding:18px}
-      .row,.triple{grid-template-columns:1fr}
+      .row{grid-template-columns:1fr}
     }
   </style>
 </head>
@@ -124,11 +145,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
-    // ====== 你的後端設定 ======
+    /* ===== 你的後端設定 ===== */
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
-    const API_BASE = 'https://api.sicar.com.tw'; // ←← 改成實際 API 網域，例如 https://api.example.com
+    const API_BASE        = 'https://api.sicar.com.tw'; // 你們工程師的 API
 
-    // ====== DOM ======
+    /* ===== DOM ===== */
     const form      = document.getElementById('form');
     const dateEl    = document.getElementById('datepicker');
     const slotEl    = document.getElementById('slot');
@@ -137,10 +158,9 @@
     const brandEl   = document.getElementById('brand');
     const seriesEl  = document.getElementById('series');
 
-    // ====== 日期選擇 ======
+    /* ===== 日期選擇 ===== */
     const today = new Date();
     const max   = new Date(); max.setMonth(max.getMonth()+2);
-
     const picker = new Litepicker({
       element: dateEl,
       singleMode: true,
@@ -151,13 +171,12 @@
       autoApply: true,
       mobileFriendly: true,
     });
-
     picker.on('selected', (date) => {
       const d = date ? date.format('YYYY-MM-DD') : '';
       if (d) fetchSlots(d);
     });
 
-    // ====== 初始化：載入品牌 ======
+    /* ===== 進站先載品牌（直連失敗自動改走代理） ===== */
     initBrands();
 
     async function initBrands(){
@@ -167,49 +186,109 @@
       seriesEl.innerHTML = `<option value="">請先選擇廠牌</option>`;
 
       try{
-        const res = await fetch(`${API_BASE}/api/v3/Yahoocar/get_brand`, { method:'GET', mode:'cors' });
-        const data = await res.json(); // 預期為陣列 [{id, name}, ...]
-        const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-        brandEl.innerHTML = '';
-        brandEl.appendChild(new Option('請選擇廠牌',''));
-        list.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
-        brandEl.disabled = false;
-      }catch(err){
-        brandEl.innerHTML = `<option value="">品牌載入失敗</option>`;
-        toast('品牌 API 連線失敗，請稍後再試。', 'error');
+        const list = await fetchBrandsDirect();     // 先直連 https://api.sicar.com.tw
+        fillBrands(list);
+      }catch(err1){
+        console.warn('[brands] direct failed:', err1?.message || err1);
+        try{
+          const list2 = await fetchBrandsViaProxy(); // 退回用 Apps Script 代理
+          fillBrands(list2);
+        }catch(err2){
+          console.error('[brands] proxy failed:', err2?.message || err2);
+          brandEl.innerHTML = `<option value="">品牌載入失敗</option>`;
+          toast('品牌 API 連線失敗，請稍後再試。', 'error');
+        }
       }
     }
 
-    // 品牌改變 → 載入車款
+    function fillBrands(list){
+      brandEl.innerHTML = '';
+      brandEl.appendChild(new Option('請選擇廠牌',''));
+      list.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
+      brandEl.disabled = false;
+    }
+
+    // 品牌改變 → 載入車款（同樣直連→代理兩段式）
     brandEl.addEventListener('change', async ()=>{
       const id = brandEl.value;
       seriesEl.disabled = true;
       seriesEl.innerHTML = `<option value="">載入中...</option>`;
       if(!id){ seriesEl.innerHTML = `<option value="">請先選擇廠牌</option>`; return; }
+
       try{
-        const res = await fetch(`${API_BASE}/api/v3/Yahoocar/get_series/${encodeURIComponent(id)}`, { method:'GET', mode:'cors' });
-        const data = await res.json(); // 預期為陣列 [{id, name}, ...]
-        const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-        seriesEl.innerHTML = '';
-        seriesEl.appendChild(new Option('請選擇車款',''));
-        list.forEach(s => seriesEl.appendChild(new Option(s.name, s.id)));
-        seriesEl.disabled = false;
-      }catch(err){
-        seriesEl.innerHTML = `<option value="">車款載入失敗</option>`;
-        toast('車款 API 連線失敗，請稍後再試。', 'error');
+        const list = await fetchSeriesDirect(id);
+        fillSeries(list);
+      }catch(err1){
+        console.warn('[series] direct failed:', err1?.message || err1);
+        try{
+          const list2 = await fetchSeriesViaProxy(id);
+          fillSeries(list2);
+        }catch(err2){
+          console.error('[series] proxy failed:', err2?.message || err2);
+          seriesEl.innerHTML = `<option value="">車款載入失敗</option>`;
+          toast('車款 API 連線失敗，請稍後再試。', 'error');
+        }
       }
     });
 
-    // ====== 取可用時段 ======
+    function fillSeries(list){
+      seriesEl.innerHTML = '';
+      seriesEl.appendChild(new Option('請選擇車款',''));
+      list.forEach(s => seriesEl.appendChild(new Option(s.name, s.id)));
+      seriesEl.disabled = false;
+    }
+
+    /* ===== 呼叫工程師 API（直連） ===== */
+    async function fetchBrandsDirect(){
+      const res = await fetch(`${API_BASE}/api/v3/Yahoocar/get_brand`, { method:'GET', mode:'cors' });
+      const data = await parseJson(res);
+      return normalizeList(data);
+    }
+    async function fetchSeriesDirect(brandId){
+      const res = await fetch(`${API_BASE}/api/v3/Yahoocar/get_series/${encodeURIComponent(brandId)}`, { method:'GET', mode:'cors' });
+      const data = await parseJson(res);
+      return normalizeList(data);
+    }
+
+    /* ===== 透過 Apps Script 代理（避免 CORS） =====
+       後端需支援：
+       GET ?action=brands                    -> [{id,name},...]
+       GET ?action=series&brand_id=123       -> [{id,name},...]
+    */
+    async function fetchBrandsViaProxy(){
+      const res = await fetch(`${APPS_SCRIPT_URL}?action=brands`, { method:'GET', mode:'cors' });
+      const data = await parseJson(res);
+      if (!data.success) throw new Error(data.message || 'proxy error');
+      return normalizeList(data.data);
+    }
+    async function fetchSeriesViaProxy(brandId){
+      const res = await fetch(`${APPS_SCRIPT_URL}?action=series&brand_id=${encodeURIComponent(brandId)}`, { method:'GET', mode:'cors' });
+      const data = await parseJson(res);
+      if (!data.success) throw new Error(data.message || 'proxy error');
+      return normalizeList(data.data);
+    }
+
+    function normalizeList(raw){
+      // 允許： [ {id,name}, ... ] 或 { data:[...] }
+      const arr = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+      return arr.map(x => ({ id: x.id, name: x.name })).filter(x => x.id != null && x.name);
+    }
+
+    async function parseJson(res){
+      const txt = await res.text();
+      try{ return JSON.parse(txt); }catch{ throw new Error(`非 JSON 回應: ${txt.slice(0,120)}`); }
+    }
+
+    /* ===== 可用時段 ===== */
     async function fetchSlots(dateStr) {
       setSelectLoading();
       try {
         const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
         const res = await fetch(url, { method: 'GET', mode: 'cors' });
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.message || '無法載入時段');
+        const json = await parseJson(res);
+        if (!json.success && !json.ok) throw new Error(json.message || '無法載入時段');
 
-        const slots = json.data || {};
+        const slots = (json.data || json.slots || {});
         const keys = Object.keys(slots).sort();
         slotEl.innerHTML = '';
         if (keys.length === 0) {
@@ -233,11 +312,10 @@
       slotEl.innerHTML = `<option value="">載入中...</option>`;
     }
 
-    // ====== 表單送出 ======
+    /* ===== 送出表單 ===== */
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // 前端基本驗證
       const requiredIds = ['brand','series','item','datepicker','slot','name','phone','email'];
       for (const id of requiredIds) {
         const el = (id==='slot') ? slotEl : document.getElementById(id);
@@ -252,7 +330,6 @@
       toast('', 'hide');
 
       try {
-        // 改為 JSON：你的 Apps Script doPost 已支援 JSON 版
         const payload = {
           item:   document.getElementById('item').value,
           date:   dateEl.value,
@@ -273,15 +350,14 @@
           body: JSON.stringify(payload),
           mode:'cors',
         });
-        const json = await res.json();
+        const json = await parseJson(res);
 
-        if (json.ok || json.success) {
+        if (json.success || json.ok) {
           toast((json.message || '預約成功！'), 'success');
           form.reset();
-          // 重置下拉
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`;
           slotEl.disabled = true;
-          await initBrands(); // 重載品牌/車款
+          await initBrands();
         } else {
           throw new Error(json.message || '預約失敗');
         }
