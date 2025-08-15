@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="dark light" />
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" rel="stylesheet" />
   <style>
     :root{
       --bg:#191935; --card:#1f1f3f; --text:#f0f0f0; --muted:#9aa0b4;
       --accent:#D9F107; --input:#2a2a47; --border:#3f3f61; --danger:#ff8c8c; --success:#8cff8c;
-      --field-h:48px; --radius:10px;
+      --ctrl-h: 48px; /* 控制所有輸入/下拉一致高度 */
     }
     html,body{height:100%}
     html{-webkit-text-size-adjust:100%}
@@ -25,144 +25,127 @@
       width:100%; max-width:720px; background:var(--card); border-radius:14px; padding:24px;
       box-shadow:0 10px 30px rgba(0,0,0,.35);
     }
-    header{margin-bottom:12px}
     h1{margin:0; font-size:clamp(22px,4.2vw,32px); color:var(--accent); text-align:center; font-weight:800;}
-    .sub{margin:6px 0 0; text-align:center; color:var(--muted); font-size:14px}
-    form{display:grid; gap:16px}
-    .grid-2{display:grid; gap:14px; grid-template-columns:1fr 1fr; align-items:end}
+    .sub{margin:6px 0 18px; text-align:center; color:var(--muted); font-size:14px}
+    .grid{display:grid; gap:16px}
+    .row{display:grid; gap:16px; grid-template-columns:1fr 1fr}
     .form-group{display:grid; gap:8px}
     label{font-weight:700; font-size:14px}
-    input,select,textarea,button{
-      font:inherit; font-size:16px; -webkit-appearance:none; appearance:none;
-      width:100%; padding:12px 14px; border-radius:var(--radius); border:1px solid var(--border);
-      background:var(--input); color:var(--text); box-sizing:border-box; line-height:1.2;
+    .control{
+      font:inherit; font-size:16px; /* iOS 防放大 */
+      height:var(--ctrl-h); line-height:calc(var(--ctrl-h) - 2px);
+      width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--border);
+      background:var(--input); color:var(--text); box-sizing:border-box; appearance:none;
     }
-    input,select{height:var(--field-h)}
-    textarea{min-height:calc(var(--field-h)*1.8); height:auto; resize:vertical}
-    input::placeholder, textarea::placeholder{color:#b8bed0}
-    input:focus,select:focus,textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(217,241,7,.25)}
-    button{
-      background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer; padding:12px 16px;
-      height:calc(var(--field-h) + 4px); border-radius:12px;
+    select.control{padding-right:34px; background-image:linear-gradient(45deg,transparent 50%,#9aa0b4 50%),linear-gradient(135deg,#9aa0b4 50%,transparent 50%);
+      background-position:calc(100% - 18px) 50%, calc(100% - 12px) 50%; background-size:6px 6px,6px 6px; background-repeat:no-repeat;}
+    textarea.control{height:auto; min-height:96px; line-height:1.5}
+    .help{color:var(--muted); font-size:12px}
+    button.control{
+      background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer; height:var(--ctrl-h);
     }
-    button:disabled{opacity:.6; cursor:not-allowed}
-    .help{color:var(--muted); font-size:12px; min-height:18px; display:flex; align-items:center}
-    #status{display:none; margin-top:-4px; font-weight:700; text-align:center}
+    button.control:disabled{opacity:.6; cursor:not-allowed}
+    #status{display:none; margin-top:4px; font-weight:700; text-align:center}
     #status.success{display:block; color:var(--success)}
     #status.error{display:block; color:var(--danger)}
-    @media (max-width:720px){
+    @media (max-width:760px){
       .container{padding:18px}
-      .grid-2{grid-template-columns:1fr}
+      .row{grid-template-columns:1fr}
     }
-    select{padding-right:36px; background-image:linear-gradient(transparent,transparent)}
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>標車酷預約系統</h1>
-      <p class="sub">定點檢測 · 台北市中山區濱江街 326-1 號</p>
-    </header>
+    <!-- 手機版也會顯示標題與副標（之前你說手機看不到，這裡固定放） -->
+    <h1>標車酷預約系統</h1>
+    <p class="sub">定點檢測 · 台北市中山區濱江街 326-1 號</p>
 
-    <form id="form" novalidate>
-      <!-- 廠牌 / 車款 -->
-      <div class="grid-2">
-        <div class="form-group">
-          <label for="brand">廠牌</label>
-          <select id="brand" name="brand" required>
-            <option value="">載入中...</option>
-          </select>
-          <div class="help" id="brandHelp"></div>
-        </div>
-        <div class="form-group">
-          <label for="model">車款</label>
-          <select id="model" name="model" required disabled>
-            <option value="">請先選擇廠牌</option>
-          </select>
-          <div class="help" id="modelHelp"></div>
-        </div>
-      </div>
-
-      <!-- 預約項目 -->
+    <form id="form" class="grid" novalidate>
+      <!-- 項目 -->
       <div class="form-group">
         <label for="item">預約項目</label>
-        <select id="item" name="item" required>
+        <select id="item" name="item" class="control" required>
           <option value="車輛檢測">車輛檢測</option>
         </select>
-        <div class="help"></div>
       </div>
 
-      <!-- 日期 / 時段 -->
-      <div class="grid-2">
+      <!-- 日期 / 時段（桌機左右並排，手機直排） -->
+      <div class="row">
         <div class="form-group">
           <label for="datepicker">日期</label>
-          <input id="datepicker" name="date" type="text" inputmode="none" autocomplete="off" required placeholder="選擇日期">
+          <input id="datepicker" name="date" type="text" class="control" inputmode="none" autocomplete="off" required>
           <div class="help">可約 2 個月內</div>
         </div>
         <div class="form-group">
           <label for="slot">時段</label>
-          <select id="slot" name="time" required disabled>
+          <select id="slot" name="time" class="control" required disabled>
             <option value="">請先選擇日期</option>
           </select>
-          <div class="help">&nbsp;</div>
+        </div>
+      </div>
+
+      <!-- 廠牌 / 車款（特別調整：**放在日期/時段的正下方**） -->
+      <div class="row">
+        <div class="form-group">
+          <label for="brand">廠牌</label>
+          <select id="brand" name="brand" class="control" required disabled>
+            <option value="">載入中...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="model">車款</label>
+          <select id="model" name="model" class="control" required disabled>
+            <option value="">請先選擇廠牌</option>
+          </select>
         </div>
       </div>
 
       <!-- 基本資料 -->
-      <div class="grid-2">
+      <div class="row">
         <div class="form-group">
           <label for="name">姓名</label>
-          <input id="name" name="name" type="text" placeholder="請輸入您的姓名" required>
-          <div class="help"></div>
+          <input id="name" name="name" type="text" class="control" placeholder="請輸入您的姓名" required>
         </div>
         <div class="form-group">
           <label for="phone">手機號碼</label>
-          <input id="phone" name="phone" type="tel" inputmode="numeric" pattern="^(09|\\+?8869)\\d{8}$" placeholder="09xxxxxxxx" required>
-          <div class="help"></div>
+          <input id="phone" name="phone" type="tel" class="control" inputmode="numeric" pattern="^(09|\\+?8869)\\d{8}$" placeholder="09xxxxxxxx" required>
         </div>
       </div>
 
       <div class="form-group">
         <label for="email">電子郵件</label>
-        <input id="email" name="email" type="email" placeholder="example@gmail.com" required>
-        <div class="help"></div>
+        <input id="email" name="email" type="email" class="control" placeholder="example@gmail.com" required>
       </div>
 
       <div class="form-group">
         <label for="memo">備註（可輸入 LINE ID 或其他需求）</label>
-        <textarea id="memo" name="memo" rows="3" placeholder="選填"></textarea>
-        <div class="help"></div>
+        <textarea id="memo" name="memo" class="control" rows="3" placeholder="選填"></textarea>
       </div>
 
-      <button id="submit" type="submit">立即預約</button>
+      <button id="submit" type="submit" class="control">立即預約</button>
       <div id="status"></div>
-      <p class="help" style="justify-content:center">送出即同意本服務使用條款。</p>
+      <p class="help">送出即同意本服務使用條款。</p>
     </form>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
-    /* ======= 可調整常數 ======= */
+    /* ===== Endpoints ===== */
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
-    const API_BASE = 'https://api.sicar.com.tw';
-    const BRANDS_PATH = '/brands';      // 若不同請改
-    const MODELS_PATH = '/models';      // 若不同請改，預期支援 ?brand=<id>
+    const API_BASE = 'https://api.sicar.com.tw'; // 你們工程師的品牌/車款 API
 
-    /* ======= DOM ======= */
+    /* ===== DOM ===== */
     const form = document.getElementById('form');
-    const brandEl = document.getElementById('brand');
-    const modelEl = document.getElementById('model');
-    const brandHelp = document.getElementById('brandHelp');
-    const modelHelp = document.getElementById('modelHelp');
-
     const dateEl = document.getElementById('datepicker');
     const slotEl = document.getElementById('slot');
+    const brandEl = document.getElementById('brand');
+    const modelEl = document.getElementById('model');
     const statusEl = document.getElementById('status');
     const submitBtn = document.getElementById('submit');
 
-    /* ======= Litepicker ======= */
+    /* ===== Date Picker ===== */
     const today = new Date();
-    const max   = new Date(); max.setMonth(max.getMonth()+2);
+    const max = new Date(); max.setMonth(max.getMonth() + 2);
     const picker = new Litepicker({
       element: dateEl,
       singleMode: true,
@@ -178,160 +161,100 @@
       if (d) fetchSlots(d);
     });
 
-    /* ======= LocalStorage 微快取＆逾時保護 ======= */
-    const LS = {
-      get(k, maxAgeSec){
-        try{
-          const raw = localStorage.getItem(k); if (!raw) return null;
-          const {t, v} = JSON.parse(raw);
-          if (maxAgeSec && (Date.now()-t)/1000 > maxAgeSec) return null;
-          return v;
-        }catch{ return null; }
-      },
-      set(k, v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})); }
-    };
-    function withTimeout(promise, ms=4000){
-      return Promise.race([
-        promise,
-        new Promise((_,rej)=>setTimeout(()=>rej(new Error('請求逾時，請稍後重試')), ms))
-      ]);
-    }
-
-    /* ======= 品牌 / 車款 ======= */
+    /* ===== Init: load brands ASAP (非阻塞 UI) ===== */
     initBrands();
-    async function initBrands(){
-      // 先用快取秒出，再背景刷新
-      const cacheKey = 'brands';
-      const cached = LS.get(cacheKey, 86400); // 24h
-      if (cached) renderBrands(cached);
-      try{
-        const data = await withTimeout(fetch(`${API_BASE}${BRANDS_PATH}`).then(r=>r.json()));
-        LS.set(cacheKey, data); renderBrands(data);
-        // 可選：預取第一個品牌的車款，加速初次體驗
-        const first = Array.isArray(data) && data[0] ? data[0] : null;
-        if (first && !LS.get(`models:${first.id}`, 21600)) {
-          fetchModels(first.id, {silent:true});
-        }
-      }catch(e){
-        if (!cached) {
-          brandEl.innerHTML = `<option value="">品牌載入失敗</option>`;
-          brandHelp.textContent = e.message || '無法取得品牌';
-        }
+
+    async function initBrands() {
+      setSelectLoading(brandEl, '載入中...');
+      modelEl.innerHTML = '<option value="">請先選擇廠牌</option>';
+      modelEl.disabled = true;
+
+      try {
+        // 依你們實際端點修改：假設 /v1/brands 回傳 {success:true, data:[{id,name}]}
+        const res = await fetch(`${API_BASE}/v1/brands`, { method: 'GET', mode: 'cors', credentials:'omit' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const list = (json.data || json.brands || []).map(x => ({ id: x.id ?? x.value ?? x.code ?? x.name, name: x.name ?? x.label ?? String(x) }));
+
+        brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
+        list.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
+        brandEl.disabled = false;
+      } catch (err) {
+        brandEl.innerHTML = '<option value="">載入失敗</option>';
+        brandEl.disabled = true;
+        toast('品牌 API 連線失敗，請稍後再試', 'error');
+        console.error('Brand fetch error:', err);
       }
     }
 
-    brandEl.addEventListener('change', () => {
-      const id = brandEl.value;
-      if (!id){ 
-        modelEl.disabled = true;
-        modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`;
+    brandEl.addEventListener('change', async () => {
+      const brandId = brandEl.value;
+      modelEl.disabled = true;
+      if (!brandId) {
+        modelEl.innerHTML = '<option value="">請先選擇廠牌</option>';
         return;
       }
-      fetchModels(id);
+      setSelectLoading(modelEl, '載入中...');
+      try {
+        // 依你們實際端點修改：假設 /v1/models?brandId=xxx 回傳 {success:true, data:[{id,name}]}
+        const res = await fetch(`${API_BASE}/v1/models?brandId=${encodeURIComponent(brandId)}`, { method: 'GET', mode: 'cors', credentials:'omit' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const list = (json.data || json.models || []).map(x => ({ id: x.id ?? x.value ?? x.code ?? x.name, name: x.name ?? x.label ?? String(x) }));
+
+        modelEl.innerHTML = '<option value="">請選擇車款</option>';
+        list.forEach(m => modelEl.appendChild(new Option(m.name, m.id)));
+        modelEl.disabled = false;
+      } catch (err) {
+        modelEl.innerHTML = '<option value="">載入失敗</option>';
+        modelEl.disabled = true;
+        toast('車款 API 連線失敗，請稍後再試', 'error');
+        console.error('Model fetch error:', err);
+      }
     });
 
-    async function fetchModels(brandId, {silent=false} = {}){
-      const cacheKey = `models:${brandId}`;
-      const cached = LS.get(cacheKey, 21600); // 6h
-      if (cached) renderModels(cached);
-
-      if (!silent) {
-        modelEl.disabled = true;
-        modelEl.innerHTML = `<option value="">載入中...</option>`;
-      }
-      try{
-        const data = await withTimeout(fetch(`${API_BASE}${MODELS_PATH}?brand=${encodeURIComponent(brandId)}`).then(r=>r.json()));
-        LS.set(cacheKey, data); renderModels(data);
-      }catch(e){
-        if (!cached){
-          modelEl.disabled = true;
-          modelEl.innerHTML = `<option value="">車款載入失敗</option>`;
-          modelHelp.textContent = e.message || '請稍後重試';
-        }
-      }
-    }
-
-    function renderBrands(list){
-      // 預期 list: [{id, name}, ...]
-      brandEl.innerHTML = '';
-      if (!Array.isArray(list) || list.length===0){
-        brandEl.innerHTML = `<option value="">無可選擇的廠牌</option>`;
-        return;
-      }
-      brandEl.appendChild(new Option('請選擇廠牌',''));
-      list.forEach(b => brandEl.appendChild(new Option(String(b.name ?? b.label ?? b.BrandName ?? b.Name ?? b.id), String(b.id ?? b.BrandId ?? b.value))));
-      brandHelp.textContent = '';
-    }
-
-    function renderModels(list){
-      modelEl.innerHTML = '';
-      if (!Array.isArray(list) || list.length===0){
-        modelEl.disabled = true;
-        modelEl.innerHTML = `<option value="">無可選擇的車款</option>`;
-        return;
-      }
-      modelEl.disabled = false;
-      modelEl.appendChild(new Option('請選擇車款',''));
-      list.forEach(m => modelEl.appendChild(new Option(String(m.name ?? m.label ?? m.ModelName ?? m.Name ?? m.id), String(m.id ?? m.ModelId ?? m.value))));
-      modelHelp.textContent = '';
-    }
-
-    /* ======= 時段（60s 微快取＋背景刷新） ======= */
-    async function fetchSlots(dateStr){
-      const cacheKey = `slots:${dateStr}`;
-      const cached = LS.get(cacheKey, 60); // 60s
-      if (cached){
-        renderSlots(cached);
-        // 背景刷新
-        fetch(`${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`)
-          .then(r=>r.json()).then(json=>{
-            if (json.success){ LS.set(cacheKey, json.data); renderSlots(json.data); }
-          }).catch(()=>{});
-        return;
-      }
-      setSelectLoading();
-      try{
-        const json = await withTimeout(fetch(`${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`).then(r=>r.json()));
+    /* ===== Slots ===== */
+    async function fetchSlots(dateStr) {
+      setSelectLoading(slotEl, '載入中...');
+      try {
+        const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
+        const res = await fetch(url, { method: 'GET', mode: 'cors' });
+        const json = await res.json();
         if (!json.success) throw new Error(json.message || '無法載入時段');
-        LS.set(cacheKey, json.data);
-        renderSlots(json.data);
-      }catch(e){
-        renderSlots(null, e.message || '連線失敗');
+
+        const slots = json.data || {};
+        const keys = Object.keys(slots).sort();
+        slotEl.innerHTML = '';
+        if (keys.length === 0) {
+          slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
+          slotEl.disabled = true;
+          return;
+        }
+        slotEl.disabled = false;
+        slotEl.appendChild(new Option('請選擇時段',''));
+        keys.forEach(k => {
+          slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k));
+        });
+      } catch (err) {
+        slotEl.innerHTML = `<option value="">無法載入時段</option>`;
+        slotEl.disabled = true;
+        toast(err.message || '連線失敗', 'error');
       }
+    }
+    function setSelectLoading(sel, text){
+      sel.disabled = true;
+      sel.innerHTML = `<option value="">${text || '載入中...'}</option>`;
     }
 
-    function setSelectLoading(){
-      slotEl.disabled = true;
-      slotEl.innerHTML = `<option value="">載入中...</option>`;
-    }
-    function renderSlots(map, errMsg){
-      if (!map){
-        slotEl.disabled = true;
-        slotEl.innerHTML = `<option value="">${errMsg || '無法載入時段'}</option>`;
-        return;
-      }
-      const keys = Object.keys(map).sort();
-      slotEl.innerHTML = '';
-      if (keys.length === 0){
-        slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
-        slotEl.disabled = true;
-        return;
-      }
-      slotEl.disabled = false;
-      slotEl.appendChild(new Option('請選擇時段',''));
-      keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${map[k]} 位）`, k)));
-    }
-
-    /* ======= 表單送出（POST JSON；把品牌/車款寫入 memo 也同時帶欄位） ======= */
+    /* ===== Submit ===== */
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const requiredIds = ['brand','model','item','datepicker','slot','name','phone','email'];
+      const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
       for (const id of requiredIds) {
         const el = (id==='slot') ? slotEl : document.getElementById(id);
         if (!el || !el.value) {
           toast('請填寫所有必填欄位。', 'error');
-          el && el.focus();
           return;
         }
       }
@@ -341,41 +264,37 @@
       toast('', 'hide');
 
       try {
-        const brandTxt = brandEl.options[brandEl.selectedIndex]?.text || '';
-        const modelTxt = modelEl.options[modelEl.selectedIndex]?.text || '';
-        const memoRaw  = document.getElementById('memo').value || '';
-        const memoWithCar = `${memoRaw}${memoRaw ? '\n' : ''}廠牌：${brandTxt}\n車款：${modelTxt}`;
-
+        // 建議 JSON，後端已支援 JSON / x-www-form-urlencoded
         const payload = {
-          action:'reserve',
+          action: 'reserve',
           item:  document.getElementById('item').value,
           date:  dateEl.value,
           time:  slotEl.value,
           name:  document.getElementById('name').value,
           phone: document.getElementById('phone').value,
           email: document.getElementById('email').value,
-          memo:  memoWithCar,
-          // 額外帶上（後端若無欄位會忽略）
+          memo:  document.getElementById('memo').value || '',
           brand: brandEl.value,
           model: modelEl.value
         };
 
-        const res  = await withTimeout(fetch(APPS_SCRIPT_URL, {
+        const res = await fetch(APPS_SCRIPT_URL, {
           method:'POST',
           headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify(payload)
-        }), 8000); // 送單給 Apps Script 給長一點逾時
+          body: JSON.stringify(payload),
+          mode:'cors',
+        });
         const json = await res.json();
 
         if (json.success) {
           toast(json.message || '預約成功！', 'success');
-          // 清掉該日快取，保證下一次查時段是最新
-          LS.set(`slots:${dateEl.value}`, null);
           form.reset();
-          modelEl.disabled = true;
-          modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`;
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`;
           slotEl.disabled = true;
+          modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`;
+          modelEl.disabled = true;
+          // 重新抓品牌（避免 RESET 後 disabled）
+          initBrands();
         } else {
           throw new Error(json.message || '預約失敗');
         }
@@ -391,7 +310,7 @@
     function toast(msg, type){
       if (type === 'hide'){ statusEl.style.display='none'; return; }
       statusEl.textContent = msg || '';
-      statusEl.className = '';
+      statusEl.className = ''; // reset
       if (type === 'success') statusEl.classList.add('success');
       if (type === 'error')   statusEl.classList.add('error');
       statusEl.style.display = msg ? 'block' : 'none';
