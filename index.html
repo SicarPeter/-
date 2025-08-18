@@ -185,65 +185,102 @@
 
     initBrandsModels();
 
-    async function initBrandsModels(){
-      try{
-        // 保守的路徑推導（支援子路徑）
-        const brandsURL = new URL('./data/brands.json', document.baseURI).href;
-        const modelsURL = new URL('./data/models.json', document.baseURI).href;
+ <script>
+async function initBrandsModels(){
+  try{
+    // 1) 路徑推導（支援子路徑，例如 https://.../-/ ）
+    const brandsURL = new URL('./data/brands.json', document.baseURI).href;
+    const modelsURL = new URL('./data/models.json', document.baseURI).href;
 
-        const [bRes, mRes] = await Promise.all([
-          fetch(brandsURL, {cache:'no-store'}),
-          fetch(modelsURL, {cache:'no-store'})
-        ]);
-        if (!bRes.ok) throw new Error('brands.json 載入失敗（HTTP '+bRes.status+'）');
-        if (!mRes.ok) throw new Error('models.json 載入失敗（HTTP '+mRes.status+'）');
+    // 2) 讀檔（禁止快取）
+    const [bRes, mRes] = await Promise.all([
+      fetch(brandsURL, {cache:'no-store'}),
+      fetch(modelsURL, {cache:'no-store'})
+    ]);
+    if (!bRes.ok) throw new Error('brands.json 載入失敗（HTTP '+bRes.status+'）');
+    if (!mRes.ok) throw new Error('models.json 載入失敗（HTTP '+mRes.status+'）');
 
-        const rawBrands = await bRes.json();
-        const rawModels = await mRes.json();
+    let rawBrands = await bRes.json();
+    let rawModels = await mRes.json();
 
-        // 寬鬆解析
-        brands = (Array.isArray(rawBrands) ? rawBrands : []).map((b, i)=>({
-          id: b.id ?? b.brand_id ?? b.brandId ?? (i+1),
-          name: b.name ?? b.brand ?? b.brandName ?? String(b)
-        })).filter(b => b.name);
-
-        const brandNameToId = new Map(brands.map(b => [String(b.name).trim(), String(b.id)]));
-
-        models = (Array.isArray(rawModels) ? rawModels : []).map((m, i)=>{
-          const name = m.name ?? m.model ?? String(m);
-          let bid = m.brand_id ?? m.brandId;
-          if (!bid) {
-            const bname = m.brand ?? m.brandName;
-            if (bname && brandNameToId.has(String(bname).trim())) bid = brandNameToId.get(String(bname).trim());
-          }
-          return { id: m.id ?? (i+1), name, brand_id: bid ?? '' };
-        }).filter(m => m.name);
-
-        // 填品牌
-        brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
-        brands.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
-        brandEl.disabled = false;
-        brandErr.style.display = 'none';
-
-        brandEl.addEventListener('change', () => {
-          const id = String(brandEl.value || '');
-          modelEl.innerHTML = '<option value="">請選擇車款</option>';
-          if (!id) { modelEl.disabled = true; return; }
-          models.filter(m => String(m.brand_id) === id)
-                .forEach(m => modelEl.appendChild(new Option(m.name, m.name)));
-          modelEl.disabled = false;
+    // 3) 防呆：如果不是 array，就嘗試從常見格式轉成 array
+    //    - { data: [...] }
+    //    - { "1":"Toyota","2":"Honda", ... }
+    //    - [{brand:"Toyota", ...}] / [{brandName:"Toyota"}]
+    const normalizeToArray = (src) => {
+      if (Array.isArray(src)) return src;
+      if (src && Array.isArray(src.data)) return src.data;
+      if (src && typeof src === 'object') {
+        return Object.entries(src).map(([id, val]) => {
+          if (val && typeof val === 'object') return { id, ...val };
+          return { id, name: String(val) };
         });
-
-      }catch(err){
-        brandEl.innerHTML = `<option value="">品牌載入失敗</option>`;
-        modelEl.innerHTML = `<option value="">車款載入失敗</option>`;
-        brandEl.disabled = true; modelEl.disabled = true;
-        brandErr.textContent = (err && err.message) ? err.message : '未知錯誤';
-        brandErr.style.display = 'block';
-        console.error('[brands/models] load error:', err);
-        toast('品牌/車款載入失敗：' + ((err && err.message) || '未知錯誤'), 'error');
       }
-    }
+      return [];
+    };
+
+    rawBrands = normalizeToArray(rawBrands);
+    rawModels = normalizeToArray(rawModels);
+
+    // 4) 標準化欄位
+    const brands = rawBrands.map((b, i) => ({
+      id:   b.id ?? b.brand_id ?? b.brandId ?? (i+1),
+      name: b.name ?? b.brand ?? b.brandName ?? String(b)
+    })).filter(b => b.name);
+
+    const brandNameToId = new Map(brands.map(b => [String(b.name).trim(), String(b.id)]));
+
+    const models = rawModels.map((m, i) => {
+      const name = m.name ?? m.model ?? String(m);
+      let brand_id = m.brand_id ?? m.brandId;
+      if (!brand_id) {
+        const bname = m.brand ?? m.brandName;
+        if (bname && brandNameToId.has(String(bname).trim())) {
+          brand_id = brandNameToId.get(String(bname).trim());
+        }
+      }
+      return { id: m.id ?? (i+1), name, brand_id: brand_id ?? '' };
+    }).filter(m => m.name);
+
+    // 5) 填品牌
+    const brandEl = document.getElementById('brand');
+    const modelEl = document.getElementById('model');
+    const brandErr = document.getElementById('brandErr');
+
+    brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
+    brands.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
+    brandEl.disabled = false;
+    brandErr.style.display = 'none';
+
+    // 6) 切換品牌 → 篩車款（支援以品牌ID或品牌名稱關聯）
+    brandEl.onchange = () => {
+      const id = String(brandEl.value || '');
+      modelEl.innerHTML = '<option value="">請選擇車款</option>';
+      if (!id) { modelEl.disabled = true; return; }
+      models.filter(m => String(m.brand_id) === id)
+            .forEach(m => modelEl.appendChild(new Option(m.name, m.name)));
+      modelEl.disabled = false;
+    };
+
+  }catch(err){
+    // 顯示錯誤在欄位下方，並在 console 提示該開原始 JSON 檢查
+    const brandEl = document.getElementById('brand');
+    const modelEl = document.getElementById('model');
+    const brandErr = document.getElementById('brandErr');
+
+    brandEl.innerHTML = `<option value="">品牌載入失敗</option>`;
+    modelEl.innerHTML = `<option value="">車款載入失敗</option>`;
+    brandEl.disabled = true; modelEl.disabled = true;
+    brandErr.textContent = (err && err.message) ? err.message : '未知錯誤';
+    brandErr.style.display = 'block';
+
+    console.error('[brands/models] load error:', err);
+    console.info('請直接打開以下兩個網址確認 JSON 是否可讀且格式正確：',
+                 new URL('./data/brands.json', document.baseURI).href,
+                 new URL('./data/models.json', document.baseURI).href);
+  }
+}
+</script>
 
     // ===== 時段（含快取 + 預熱 + 逾時重試）=====
     async function fetchSlots(dateStr) {
