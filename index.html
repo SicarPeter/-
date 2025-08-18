@@ -31,7 +31,7 @@
     .grid{display:grid; gap:16px}
     .row{
       display:grid; grid-template-columns:1fr 1fr; gap:16px;
-      align-items:end; /* 讓兩側欄位底線對齊（日期/時段不會錯位） */
+      align-items:start; /* 頂端對齊，避免右側時段因左側 help 文下沉 */
     }
     @media (max-width:760px){ .row{ grid-template-columns:1fr; } }
 
@@ -45,7 +45,7 @@
       width:100%; border-radius:10px; border:1px solid var(--border);
       background:var(--input); color:var(--text); box-sizing:border-box;
     }
-    /* select 用原生箭頭最穩，拿掉自繪三角形 */
+    /* select 用原生箭頭，最穩定 */
     select.control{ background-image:none; padding-right:14px; }
     /* iOS 的 select 垂直置中（避免上下偏）*/
     @supports (-webkit-touch-callout:none){
@@ -143,6 +143,8 @@
   <script>
     /* ===== Endpoints ===== */
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
+    const BRAND_JSON = './data/brands.json';
+    const MODEL_JSON = './data/models.json';
 
     /* ===== DOM ===== */
     const form = document.getElementById('form');
@@ -171,37 +173,38 @@
       if (d) fetchSlots(d);
     });
 
-    /* ====== 靜態 JSON：品牌 / 車款（零 CORS） ====== */
-    const BRAND_JSON = './data/brands.json';
-    const MODEL_JSON = './data/models.json';
-
-    // 快取（避免重複讀檔 & 秒出體感）
+    /* ===== Local cache（brands：24h；models：每品牌 6h） ===== */
     const LS = {
-      get(k,sec){ try{ const v = JSON.parse(localStorage.getItem(k)||'null'); if(!v) return null; if(sec && (Date.now()-v.t)/1000>sec) return null; return v.v;}catch{return null} },
-      set(k,v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})) }
+      get(k, sec){
+        try{
+          const v = JSON.parse(localStorage.getItem(k) || 'null');
+          if(!v) return null;
+          if(sec && (Date.now() - v.t)/1000 > sec) return null;
+          return v.v;
+        }catch{return null}
+      },
+      set(k, v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})) }
     };
 
+    /* ===== 初始化：品牌 ===== */
     initBrands();
-
     async function initBrands(){
       brandEl.disabled = true;
       brandEl.innerHTML = '<option value="">載入中...</option>';
 
-      const cached = LS.get('brands', 86400); // 24h
+      const cached = LS.get('brands', 86400);
       if (cached) renderBrands(cached);
 
       try{
         const res = await fetch(BRAND_JSON, {cache:'force-cache'});
         const data = await res.json();
-        // 容錯：支援多種格式
-        // 1) {"brands":[ "Toyota", ... ]}  2) [{"id":"1","name":"Toyota"}]  3) ["Toyota", ...]
+        // 容錯支持多種格式
         let list = [];
         if (Array.isArray(data)) {
           list = data.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))}));
         } else if (data && Array.isArray(data.brands)) {
           list = data.brands.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))}));
         } else if (data && typeof data === 'object') {
-          // map 結構：{ "Toyota": [...], "Honda":[...] } => 品牌在鍵名
           list = Object.keys(data).map(k => ({id:k, name:k}));
         }
         if (!list.length) throw new Error('brands.json 格式不符');
@@ -209,10 +212,9 @@
         LS.set('brands', list);
         renderBrands(list);
 
-        // 預抓第一個品牌車款
+        // 預抓第一個品牌車款，加速體感
         const first = list[0]?.id;
         if (first) fetchModels(first, {silent:true});
-
       }catch(e){
         console.warn('load brands error', e);
         if (!cached){
@@ -234,7 +236,7 @@
 
     async function fetchModels(brandId, {silent=false} = {}){
       const CK = 'models:' + brandId;
-      const cached = LS.get(CK, 21600); // 6h
+      const cached = LS.get(CK, 21600);
       if (cached) renderModels(cached);
 
       if (!silent){
@@ -252,7 +254,7 @@
           list = data.filter(x => String(x.brand_id??x.brandId??x.BrandId) === String(brandId))
                      .map(x => ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))}));
         } else if (data && typeof data === 'object') {
-          // map 結構：{ "Toyota":[{id,name}或"Altis"] , "1":[...] }
+          // map 結構：{ "TOYOTA":[{id,name}或"Altis"] , "1":[...] }
           const byKey = data[String(brandId)] || data[brandEl.options[brandEl.selectedIndex].text] || null;
           if (Array.isArray(byKey)) {
             list = byKey.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))}));
@@ -314,7 +316,7 @@
       }
     }
 
-    /* ===== 送出 ===== */
+    /* ===== 送出（x-www-form-urlencoded，避免 CORS 預檢） ===== */
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -327,38 +329,40 @@
       submitBtn.disabled = true; submitBtn.textContent = '提交中...'; toast('', 'hide');
 
       try {
-        const payload = {
-          action:'reserve',
-          item:  document.getElementById('item').value,
-          date:  dateEl.value,
-          time:  slotEl.value,
-          name:  document.getElementById('name').value,
-          phone: document.getElementById('phone').value,
-          email: document.getElementById('email').value,
-          memo:  document.getElementById('memo').value || '',
-          brand: brandEl.value,
-          model: modelEl.value
-        };
+        const params = new URLSearchParams();
+        params.set('action','reserve');
+        params.set('item',  document.getElementById('item').value);
+        params.set('date',  dateEl.value);
+        params.set('time',  slotEl.value);
+        params.set('name',  document.getElementById('name').value);
+        params.set('phone', document.getElementById('phone').value);
+        params.set('email', document.getElementById('email').value);
+        params.set('memo',  document.getElementById('memo').value || '');
+        params.set('brand', brandEl.value);
+        params.set('model', modelEl.value);
 
         const res  = await fetch(APPS_SCRIPT_URL, {
           method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify(payload),
+          headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=utf-8' },
+          body: params.toString(),
           mode:'cors',
         });
-        const json = await res.json();
 
-        if (json.success) {
-          toast(json.message || '預約成功！','success');
+        const ct = res.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await res.json()
+                     : { success:false, message:'伺服器未回 JSON（請確認 Web App 權限/部署）' };
+
+        if (data.success) {
+          toast(data.message || '預約成功！','success');
           form.reset();
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
           initBrands();
         } else {
-          throw new Error(json.message || '預約失敗');
+          throw new Error(data.message || '預約失敗');
         }
       } catch (err) {
-        toast(err.message || '伺服器錯誤，請稍後再試。','error');
+        toast(err.message || '連線失敗，請稍後再試。','error');
       } finally {
         submitBtn.disabled = false; submitBtn.textContent = '立即預約';
       }
