@@ -44,6 +44,16 @@
     button.control{
       background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer; height:var(--ctrl-h);
     }
+    .control {
+  height: var(--ctrl-h);
+  line-height: calc(var(--ctrl-h) - 2px);
+  font-size: 16px; /* iOS 防放大 */
+  padding: 10px 14px;
+}
+
+select.control {
+  padding-right: 34px;
+}
     button.control:disabled{opacity:.6; cursor:not-allowed}
     #status{display:none; margin-top:4px; font-weight:700; text-align:center}
     #status.success{display:block; color:var(--success)}
