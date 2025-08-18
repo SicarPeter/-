@@ -12,7 +12,7 @@
     :root{
       --bg:#191935; --card:#1f1f3f; --text:#f0f0f0; --muted:#9aa0b4;
       --accent:#D9F107; --input:#2a2a47; --border:#3f3f61; --danger:#ff8c8c; --success:#8cff8c;
-      --ctrl-h: 48px; /* 控制所有輸入/下拉一致高度 */
+      --ctrl-h: 48px;
     }
     html,body{height:100%}
     html{-webkit-text-size-adjust:100%}
@@ -20,7 +20,6 @@
       font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
       background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
       min-height:100svh;
-      /* 安全區，避免瀏海吃到標題 */
       padding:
         calc(16px + env(safe-area-inset-top))
         16px
@@ -37,23 +36,37 @@
     .row{display:grid; gap:16px; grid-template-columns:1fr 1fr}
     .form-group{display:grid; gap:8px}
     label{font-weight:700; font-size:14px}
+
+    /* 統一表單控制項 */
     .control{
-      font:inherit; font-size:16px; /* iOS 防放大 */
-      height:var(--ctrl-h); line-height:calc(var(--ctrl-h) - 2px);
+      font:inherit; font-size:16px;
+      height:var(--ctrl-h); line-height:1.4;
       width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--border);
-      background:var(--input); color:var(--text); box-sizing:border-box; appearance:none;
+      background:var(--input); color:var(--text); box-sizing:border-box;
+      -webkit-appearance:none; appearance:none;
     }
-    select.control{padding-right:34px; background-image:linear-gradient(45deg,transparent 50%,#9aa0b4 50%),linear-gradient(135deg,#9aa0b4 50%,transparent 50%);
-      background-position:calc(100% - 18px) 50%, calc(100% - 12px) 50%; background-size:6px 6px,6px 6px; background-repeat:no-repeat;}
+    select.control{
+      padding-right:40px;
+      background-image:
+        linear-gradient(45deg,transparent 50%,#9aa0b4 50%),
+        linear-gradient(135deg,#9aa0b4 50%,transparent 50%);
+      background-position: right 18px center, right 12px center;
+      background-size:6px 6px,6px 6px;
+      background-repeat:no-repeat;
+    }
     textarea.control{height:auto; min-height:96px; line-height:1.5}
+
     .help{color:var(--muted); font-size:12px}
+
     button.control{
       background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer; height:var(--ctrl-h);
     }
     button.control:disabled{opacity:.6; cursor:not-allowed}
+
     #status{display:none; margin-top:4px; font-weight:700; text-align:center}
     #status.success{display:block; color:var(--success)}
     #status.error{display:block; color:var(--danger)}
+
     @media (max-width:760px){
       .container{padding:18px}
       .row{grid-template-columns:1fr}
@@ -130,10 +143,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
-    // ====== 你的 Apps Script Web App URL（/exec 結尾）======
+    // === 你的 Apps Script Web App URL（/exec 結尾）===
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
 
-    // ====== DOM ======
+    // DOM
     const form      = document.getElementById('form');
     const dateEl    = document.getElementById('datepicker');
     const slotEl    = document.getElementById('slot');
@@ -142,7 +155,7 @@
     const statusEl  = document.getElementById('status');
     const submitBtn = document.getElementById('submit');
 
-    // ====== Litepicker ======
+    // 日期選擇器
     const today = new Date();
     const max   = new Date(); max.setMonth(max.getMonth()+2);
     const picker = new Litepicker({
@@ -160,63 +173,102 @@
       if (d) fetchSlots(d);
     });
 
-    // ====== 讀 brands / models（零 CORS，從本機 data/）======
+    // ===== 品牌/車款資料（從本機 data/，零 CORS）=====
     let brands = [];       // [{id, name}]
-    let models = [];       // [{id, brand_id, name}]
-    const slotsCache = new Map(); // 'YYYY-MM-DD' -> {time: remain}
+    let models = [];       // [{id, name, brand_id/brandId/brand/brandName}]
+    const slotsCache = new Map();
 
     initBrandsModels();
 
     async function initBrandsModels(){
       try{
+        // 用絕對 URL 防止子路徑問題
+        const brandsURL = new URL('data/brands.json', location.href).href;
+        const modelsURL = new URL('data/models.json', location.href).href;
+
         const [bRes, mRes] = await Promise.all([
-          fetch('./data/brands.json', {cache:'no-cache'}),
-          fetch('./data/models.json', {cache:'no-cache'})
+          fetch(brandsURL, {cache:'no-cache'}),
+          fetch(modelsURL, {cache:'no-cache'})
         ]);
-        brands = await bRes.json();
-        models = await mRes.json();
+        if (!bRes.ok) throw new Error('brands.json 載入失敗 ('+bRes.status+')');
+        if (!mRes.ok) throw new Error('models.json 載入失敗 ('+mRes.status+')');
+
+        const rawBrands = await bRes.json();
+        const rawModels = await mRes.json();
+
+        // 寬鬆解析：允許多種欄位名稱
+        brands = (Array.isArray(rawBrands) ? rawBrands : []).map((b, i)=>({
+          id: b.id ?? b.brand_id ?? b.brandId ?? (i+1),
+          name: b.name ?? b.brand ?? b.brandName ?? String(b)
+        })).filter(b => b.name);
+
+        // 建品牌名稱 -> id 對照
+        const brandNameToId = new Map(brands.map(b => [String(b.name).trim(), String(b.id)]));
+
+        models = (Array.isArray(rawModels) ? rawModels : []).map((m, i)=>{
+          const name = m.name ?? m.model ?? String(m);
+          let bid = m.brand_id ?? m.brandId;
+          if (!bid) {
+            const bname = m.brand ?? m.brandName;
+            if (bname && brandNameToId.has(String(bname).trim())) bid = brandNameToId.get(String(bname).trim());
+          }
+          return { id: m.id ?? (i+1), name, brand_id: bid ?? '' };
+        }).filter(m => m.name);
 
         // 填入品牌
         brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
         brands.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
         brandEl.disabled = false;
 
-        // 當品牌變更 → 過濾車款
         brandEl.addEventListener('change', () => {
-          const id = brandEl.value;
+          const id = String(brandEl.value || '');
           modelEl.innerHTML = '<option value="">請選擇車款</option>';
           if (!id) { modelEl.disabled = true; return; }
-          models.filter(m => String(m.brand_id) === String(id))
+          models.filter(m => String(m.brand_id) === id)
                 .forEach(m => modelEl.appendChild(new Option(m.name, m.name)));
           modelEl.disabled = false;
         });
 
       }catch(err){
-        brandEl.innerHTML = '<option value="">品牌載入失敗</option>';
-        modelEl.innerHTML = '<option value="">車款載入失敗</option>';
+        brandEl.innerHTML = `<option value="">品牌載入失敗</option>`;
+        modelEl.innerHTML = `<option value="">車款載入失敗</option>`;
         brandEl.disabled = true; modelEl.disabled = true;
+        toast('品牌/車款載入失敗：' + (err && err.message ? err.message : '未知錯誤'), 'error');
       }
     }
 
-    // ====== 取可用時段（含快取 + 預熱）======
+    // ===== 時段（含快取 + 預熱 + 逾時重試）=====
     async function fetchSlots(dateStr) {
       if (slotsCache.has(dateStr)) { renderSlots(slotsCache.get(dateStr)); return; }
       setSelectLoading();
+
+      const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
+
       try {
-        const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 6000);
-        const res = await fetch(url, { method: 'GET', mode: 'cors', signal: ctrl.signal });
-        clearTimeout(t);
+        const timer = setTimeout(() => ctrl.abort(), 10000); // 10s timeout
+        const res = await fetch(url, { method:'GET', mode:'cors', signal: ctrl.signal });
+        clearTimeout(timer);
         const json = await res.json();
         if (!json.success) throw new Error(json.message || '無法載入時段');
         slotsCache.set(dateStr, json.data || {});
         renderSlots(json.data || {});
-      } catch (err) {
-        slotEl.innerHTML = `<option value="">無法載入時段</option>`;
-        slotEl.disabled = true;
+      } catch (err1) {
+        // 退回再試一次（無 signal）
+        try {
+          const res2 = await fetch(url, { method:'GET', mode:'cors' });
+          const json2 = await res2.json();
+          if (!json2.success) throw new Error(json2.message || '無法載入時段');
+          slotsCache.set(dateStr, json2.data || {});
+          renderSlots(json2.data || {});
+        } catch (err2) {
+          slotEl.innerHTML = `<option value="">無法載入時段</option>`;
+          slotEl.disabled = true;
+          toast('時段載入失敗：' + ((err2 && err2.message) || (err1 && err1.message) || '未知錯誤'), 'error');
+        }
       }
     }
+
     function setSelectLoading() {
       slotEl.disabled = true;
       slotEl.innerHTML = `<option value="">載入中...</option>`;
@@ -232,6 +284,8 @@
       slotEl.appendChild(new Option('請選擇時段',''));
       keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
     }
+
+    // 開始互動時預熱未來 7 天
     dateEl.addEventListener('focus', prewarmNearbyDates, { once: true });
     function prewarmNearbyDates() {
       const today = new Date();
@@ -248,7 +302,7 @@
       });
     }
 
-    // ====== 表單送出 ======
+    // ===== 送出 =====
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
@@ -268,7 +322,7 @@
           date:  dateEl.value,
           time:  slotEl.value,
           brand: brandEl.options[brandEl.selectedIndex]?.text || brandEl.value,
-          model: modelEl.value, // 我們用顯示名當值
+          model: modelEl.value,
           name:  document.getElementById('name').value,
           phone: document.getElementById('phone').value,
           email: document.getElementById('email').value,
@@ -285,10 +339,11 @@
 
         if (json.success) {
           toast(json.message || '預約成功！', 'success');
+          // 重置表單
           form.reset();
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           brandEl.selectedIndex = 0; modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
-          // 清除當日快取，避免下位使用者看到舊餘量（後端也有清）
+          // 清快取，避免隔壁使用者看到舊餘量
           slotsCache.delete(payload.date);
         } else {
           throw new Error(json.message || '預約失敗');
@@ -310,7 +365,7 @@
       statusEl.style.display = msg ? 'block' : 'none';
     }
 
-    // 避免 iOS 雙擊放大
+    // iOS 避免雙擊放大
     let lastTouch = 0;
     document.addEventListener('touchend', (e)=>{
       const now = Date.now();
