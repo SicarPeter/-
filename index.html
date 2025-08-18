@@ -237,10 +237,18 @@
         }).filter(m => m.name);
 
         // 填品牌
-        brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
-        brands.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
-        brandEl.disabled = false;
-        brandErr.style.display = 'none';
+    const brandEl = document.getElementById('brand');
+const modelEl = document.getElementById('model');
+const brandErr = document.getElementById('brandErr');
+
+brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
+brands.forEach(b => {
+  const text  = b.name ?? b.brand ?? b.brandName ?? String(b);
+  const value = b.id   ?? text;
+  brandEl.appendChild(new Option(text, value));
+});
+brandEl.disabled = false;
+brandErr.style.display = 'none';
 
         // 切品牌 → 篩車款
         brandEl.onchange = () => {
