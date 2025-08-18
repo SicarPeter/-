@@ -216,11 +216,12 @@
         rawBrands = normalizeToArray(rawBrands);
         rawModels = normalizeToArray(rawModels);
 
-        // 寫入全域 brands / models（不要用 const 重新宣告）
-        brands = rawBrands.map((b, i) => ({
-          id:   b.id ?? b.brand_id ?? b.brandId ?? (i+1),
-          name: b.name ?? b.brand ?? b.brandName ?? String(b)
-        })).filter(b => b.name);
+ // 寫入全域 brands / models（將 name 壓平成字串，避免 [object Object]）
+brands = rawBrands.map((b, i) => {
+  const id   = b.id ?? b.brand_id ?? b.brandId ?? b.code ?? (i + 1);
+  const name = flatName(b.name ?? b.brand ?? b.brandName ?? b);
+  return { id: String(id), name: name.trim() };
+}).filter(b => b.name && b.name !== '[object Object]');
 
         const brandNameToId = new Map(brands.map(b => [String(b.name).trim(), String(b.id)]));
 
@@ -243,9 +244,7 @@ const brandErr = document.getElementById('brandErr');
 
 brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
 brands.forEach(b => {
-  const text  = b.name ?? b.brand ?? b.brandName ?? String(b);
-  const value = b.id   ?? text;
-  brandEl.appendChild(new Option(text, value));
+  brandEl.appendChild(new Option(b.name, b.id));
 });
 brandEl.disabled = false;
 brandErr.style.display = 'none';
