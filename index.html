@@ -1,425 +1,395 @@
-<!doctype html>
-<html lang="zh-Hant-TW">
-<head>
-  <meta charset="utf-8" />
-  <title>標車酷預約系統</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
-  <meta name="color-scheme" content="dark light" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" rel="stylesheet" />
-  <style>
-    :root{
-      --bg:#191935; --card:#1f1f3f; --text:#f0f0f0; --muted:#9aa0b4;
-      --accent:#D9F107; --input:#2a2a47; --border:#3f3f61; --danger:#ff8c8c; --success:#8cff8c;
-      --ctrl-h: 48px; /* 控制所有輸入/下拉一致高度 */
+/** ===== 標車酷 預約 API（Apps Script 後端，完整覆蓋版） =====
+ * 前端：GitHub Pages（fetch 呼叫）
+ * 後端：Apps Script Web App（Deploy：Anyone）
+ * Endpoints:
+ *  - GET  ?action=health                -> {"success":true}
+ *  - GET  ?action=slots&date=YYYY-MM-DD -> {"success":true,"data":{"10:00":2,...}}
+ *  - GET  ?cancelCode=...               -> 取消結果 HTML
+ *  - POST (JSON 或 x-www-form-urlencoded; action=reserve 可選) -> 建立預約
+ */
+
+const TZ = Session.getScriptTimeZone() || 'Asia/Taipei';
+
+/* ------------ 小工具：JSON 輸出 ------------ */
+function json(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ------------ 入口：GET ------------ */
+function doGet(e) {
+  try {
+    // 取消預約頁（HTML）
+    if (e && e.parameter && e.parameter.cancelCode) {
+      const result = cancelAppointment(e.parameter.cancelCode);
+      const color = result.success ? '#0ba360' : '#e53935';
+      const html = `
+        <html>
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>取消預約</title>
+            <style>
+              body { font-family:'Noto Sans TC',sans-serif; background:#0f172a; color:#e2e8f0; margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+              .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:24px; max-width:600px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+              h1 { margin:0 0 12px; font-size:20px; color:#a7f3d0; }
+              p.status { margin:0; font-weight:700; color:${color}; }
+              a { color:#93c5fd; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>取消預約結果</h1>
+              <p class="status">${escapeHtml(result.message)}</p>
+              <p style="margin-top:16px;">回到 <a href="https://sicarpeter.github.io/-/">預約頁面</a></p>
+            </div>
+          </body>
+        </html>`;
+      return HtmlService.createHtmlOutput(html).setTitle('取消預約');
     }
-    html,body{height:100%}
-    html{-webkit-text-size-adjust:100%}
-    body{
-      font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
-      background:var(--bg); color:var(--text); margin:0;
-      display:flex; align-items:flex-start; justify-content:center;
-      min-height:100svh;
-      padding: max(16px,calc(16px + env(safe-area-inset-top))) 16px 24px;
+
+    const action = (e && e.parameter && String(e.parameter.action).toLowerCase()) || 'health';
+
+    if (action === 'health') {
+      return json({ success: true, ts: new Date().toISOString() });
     }
-    .container{
-      width:100%; max-width:720px; background:var(--card); border-radius:14px; padding:24px;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
+
+    if (action === 'slots') {
+      const dateStr = e && e.parameter && e.parameter.date ? String(e.parameter.date) : '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return json({ success: false, message: '缺少或錯誤的 date（YYYY-MM-DD）' });
+      }
+      const slots = getAvailableSlots(dateStr); // { "10:00": 3, ... }
+      return json({ success: true, data: slots });
     }
-    h1{margin:0; font-size:clamp(22px,4.2vw,32px); color:var(--accent); text-align:center; font-weight:800;}
-    .sub{margin:6px 0 18px; text-align:center; color:var(--muted); font-size:14px}
 
-    .grid{display:grid; gap:16px}
-    .row{display:grid; gap:16px; grid-template-columns:1fr 1fr}
+    return json({ success: false, message: 'Unknown action' });
 
-    .form-group{display:grid; gap:8px; align-self:start}
-    label{font-weight:700; font-size:14px}
+  } catch (err) {
+    return json({ success: false, message: 'Server error', detail: String(err) });
+  }
+}
 
-    /* 統一控制項外觀（避免文字上漂/高度不一） */
-    .control{
-      font:inherit; font-size:16px;
-      height:var(--ctrl-h); line-height:calc(var(--ctrl-h) - 2px);
-      width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--border);
-      background:var(--input); color:var(--text); box-sizing:border-box;
-      -webkit-appearance:none; appearance:none;
+/* ------------ 入口：POST（支援 JSON 或 x-www-form-urlencoded） ------------ */
+function doPost(e) {
+  try {
+    let body = {};
+
+    if (e && e.postData && e.postData.contents) {
+      // 先嘗試 JSON
+      try {
+        body = JSON.parse(e.postData.contents);
+      } catch (_) {
+        // 再嘗試 x-www-form-urlencoded（從 e.parameter 取）
+        if (e.parameter) body = e.parameter;
+      }
     }
-    select.control{
-      padding-right:40px;
-      background-image:
-        linear-gradient(45deg,transparent 50%,#9aa0b4 50%),
-        linear-gradient(135deg,#9aa0b4 50%,transparent 50%);
-      background-position: right 18px center, right 12px center;
-      background-size:6px 6px,6px 6px;
-      background-repeat:no-repeat;
+
+    // 支援 action=reserve（可選），沒有也照常處理
+    const action = (body.action || '').toString().toLowerCase();
+    if (action && action !== 'reserve') {
+      return json({ success: false, message: '不支援的 action' });
     }
-    textarea.control{height:auto; min-height:96px; line-height:1.5}
-    .help{color:var(--muted); font-size:12px; min-height:18px}
-    .help.spacer{visibility:hidden} /* 讓左右欄高度一致 */
 
-    button.control{
-      background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer; height:var(--ctrl-h);
+    // 驗證必填（加入 brand / model）
+    const required = ['item','date','time','name','phone','email','brand','model'];
+    for (var i = 0; i < required.length; i++) {
+      const k = required[i];
+      if (!body[k]) return json({ success: false, message: `缺少欄位：${k}` });
     }
-    button.control:disabled{opacity:.6; cursor:not-allowed}
 
-    #status{display:none; margin-top:4px; font-weight:700; text-align:center}
-    #status.success{display:block; color:var(--success)}
-    #status.error{display:block; color:var(--danger)}
-    .field-error{color:var(--danger); font-size:12px; margin-top:-6px}
-
-    @media (max-width:760px){
-      .container{padding:18px}
-      .row{grid-template-columns:1fr}
+    // 手機格式（台灣）
+    const phoneRegex = /^(09|\+?8869)\d{8}$/;
+    if (!phoneRegex.test(String(body.phone))) {
+      return json({ success: false, message: '請輸入有效的台灣手機號碼格式。' });
     }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>標車酷預約系統</h1>
-    <p class="sub">定點檢測 · 台北市中山區濱江街 326-1 號</p>
 
-    <form id="form" class="grid" novalidate>
-      <div class="form-group">
-        <label for="item">預約項目</label>
-        <select id="item" name="item" class="control" required>
-          <option value="車輛檢測">車輛檢測</option>
-        </select>
-      </div>
-
-      <div class="row">
-        <div class="form-group">
-          <label for="datepicker">日期</label>
-          <input id="datepicker" name="date" type="text" inputmode="none" autocomplete="off" class="control" required>
-          <div class="help">可約 2 個月內</div>
-        </div>
-        <div class="form-group">
-          <label for="slot">時段</label>
-          <select id="slot" name="time" class="control" required disabled>
-            <option value="">請先選擇日期</option>
-          </select>
-          <div class="help spacer">占位</div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="form-group">
-          <label for="brand">廠牌</label>
-          <select id="brand" name="brand" class="control" required disabled>
-            <option value="">載入中...</option>
-          </select>
-          <div id="brandErr" class="field-error" style="display:none"></div>
-        </div>
-        <div class="form-group">
-          <label for="model">車款</label>
-          <select id="model" name="model" class="control" required disabled>
-            <option value="">請先選擇廠牌</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="form-group">
-          <label for="name">姓名</label>
-          <input id="name" name="name" type="text" class="control" placeholder="請輸入您的姓名" required>
-        </div>
-        <div class="form-group">
-          <label for="phone">手機號碼</label>
-          <input id="phone" name="phone" type="tel" inputmode="numeric" class="control"
-                 pattern="^(09|\\+?8869)\\d{8}$" placeholder="09xxxxxxxx" required autocomplete="tel-national">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="email">電子郵件</label>
-        <input id="email" name="email" type="email" class="control" placeholder="example@gmail.com" required autocomplete="email">
-      </div>
-
-      <div class="form-group">
-        <label for="memo">備註（可輸入 LINE ID 或其他需求）</label>
-        <textarea id="memo" name="memo" class="control" rows="3" placeholder="選填"></textarea>
-      </div>
-
-      <button id="submit" type="submit" class="control">立即預約</button>
-      <div id="status"></div>
-    </form>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
-  <script>
-    // === 後端 Apps Script Web App（/exec 結尾）===
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
-
-    // DOM
-    const form      = document.getElementById('form');
-    const dateEl    = document.getElementById('datepicker');
-    const slotEl    = document.getElementById('slot');
-    const brandEl   = document.getElementById('brand');
-    const modelEl   = document.getElementById('model');
-    const brandErr  = document.getElementById('brandErr');
-    const statusEl  = document.getElementById('status');
-    const submitBtn = document.getElementById('submit');
-
-    // 日期選擇器
-    const today = new Date();
-    const max   = new Date(); max.setMonth(max.getMonth()+2);
-    const picker = new Litepicker({
-      element: dateEl,
-      singleMode: true,
-      lang: 'zh-TW',
-      format: 'YYYY-MM-DD',
-      minDate: today,
-      maxDate: max,
-      autoApply: true,
-      mobileFriendly: true,
-    });
-    picker.on('selected', (date) => {
-      const d = date ? date.format('YYYY-MM-DD') : '';
-      if (d) fetchSlots(d);
+    // 建立預約（寫表＋日曆＋寄信）
+    const result = createReservation({
+      item : String(body.item),
+      date : String(body.date),
+      time : String(body.time),
+      name : String(body.name),
+      phone: String(body.phone),
+      email: String(body.email),
+      memo : body.memo ? String(body.memo) : '',
+      brand: String(body.brand),
+      model: String(body.model)
     });
 
-    // 近 7 天預熱（第一次點日期時）
-    const slotsCache = new Map();
-    dateEl.addEventListener('focus', prewarmSlots, { once:true });
-    function prewarmSlots(){
-      const base = new Date();
-      const q = [];
-      for (let i=0;i<7;i++){
-        const d = new Date(base.getFullYear(), base.getMonth(), base.getDate()+i);
-        const s = d.toISOString().slice(0,10);
-        if (!slotsCache.has(s)) q.push(s);
-      }
-      q.forEach(d=>{
-        fetch(`${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(d)}`)
-          .then(r=>r.json()).then(j=>{ if(j&&j.success) slotsCache.set(d, j.data||{}); })
-          .catch(()=>{});
-      });
-    }
+    return json(result);
 
-    // === 讀取品牌/車款（本機 data/，避免 CORS） ===
-    initBrandsModels();
-    async function initBrandsModels(){
-      try{
-        const brandsURL = new URL('./data/brands.json', document.baseURI).href;
-        const modelsURL = new URL('./data/models.json', document.baseURI).href;
+  } catch (err) {
+    return json({ success: false, message: '預約失敗，請稍後再試或聯繫客服。', detail: String(err) });
+  }
+}
 
-        const [bRes, mRes] = await Promise.all([
-          fetch(brandsURL, {cache:'no-store'}),
-          fetch(modelsURL, {cache:'no-store'})
-        ]);
-        if (!bRes.ok) throw new Error('brands.json 載入失敗（HTTP '+bRes.status+'）');
-        if (!mRes.ok) throw new Error('models.json 載入失敗（HTTP '+mRes.status+'）');
+/* ------------ 建立預約（核心流程；依欄名寫入＋快取失效） ------------ */
+function createReservation(formData) {
+  const cancelCode = Utilities.getUuid();
 
-        const rawBrands = await bRes.json();
-        const rawModels = await mRes.json();
+  const ss = getOrCreateSpreadsheet();
+  const sheet = ss.getSheets()[0];
 
-        const brands = normalizeBrands(rawBrands);           // [{id,name}]
-        const models = normalizeModels(rawModels, brands);   // [{id,name,brand_id}]
+  // 取得與補齊表頭
+  let headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const needed = ['預約時間','姓名','電子郵件','聯絡電話','備註','填單時間','取消碼','預約狀態','預約項目','廠牌','車款'];
+  let appended = false;
+  needed.forEach(name => {
+    if (headers.indexOf(name) === -1) { headers.push(name); appended = true; }
+  });
+  if (appended) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
 
-        // ---- 填入品牌（只放純文字，避免 [object Object]）----
-        brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
-        brands.forEach(b => {
-          const name = String(b.name || '').trim();
-          const id   = String(b.id   || name);
-          if (name) brandEl.appendChild(new Option(name, id));
-        });
-        brandEl.disabled = false;
-        brandErr.style.display = 'none';
+  function idx(name){ const i = headers.indexOf(name); if (i === -1) throw new Error('缺少欄位：'+name); return i; }
 
-        // ---- 切換品牌 -> 篩車款 ----
-        brandEl.onchange = () => {
-          const id = String(brandEl.value || '');
-          modelEl.innerHTML = '<option value="">請選擇車款</option>';
-          if (!id) { modelEl.disabled = true; return; }
-          models.filter(m => String(m.brand_id) === id)
-                .forEach(m => modelEl.appendChild(new Option(m.name, m.name)));
-          modelEl.disabled = false;
-        };
+  // 準備資料列
+  const start = new Date(`${formData.date}T${formData.time}:00`);
+  const row = new Array(headers.length).fill('');
+  row[idx('預約時間')] = start;
+  row[idx('姓名')]     = formData.name;
+  row[idx('電子郵件')] = formData.email;
+  row[idx('聯絡電話')] = formData.phone;
+  row[idx('備註')]     = formData.memo || '';
+  row[idx('填單時間')] = new Date();
+  row[idx('取消碼')]   = cancelCode;
+  row[idx('預約狀態')] = '未取消';
+  row[idx('預約項目')] = formData.item;
+  row[idx('廠牌')]     = formData.brand;
+  row[idx('車款')]     = formData.model;
 
-      }catch(err){
-        brandEl.innerHTML = `<option value="">品牌載入失敗</option>`;
-        modelEl.innerHTML = `<option value="">車款載入失敗</option>`;
-        brandEl.disabled = true; modelEl.disabled = true;
-        brandErr.textContent = (err && err.message) ? err.message : '未知錯誤';
-        brandErr.style.display = 'block';
-        console.error('[brands/models] load error:', err);
-      }
-    }
+  sheet.appendRow(row);
 
-    // 品牌正規化：支援 array / {id:name} map / 物件陣列
-    function normalizeBrands(src){
-      const out = [];
-      if (Array.isArray(src)){
-        src.forEach((b,i)=>{
-          if (typeof b === 'string'){ out.push({id:String(i+1), name:b}); }
-          else if (b && typeof b === 'object'){
-            const name = firstString(b.name, b.brand, b.brandName, b.label);
-            const id   = firstDefined(b.id, b.brand_id, b.brandId, b.code, i+1, name);
-            if (name) out.push({ id:String(id), name:String(name) });
-          }
-        });
-      }else if (src && typeof src === 'object'){
-        Object.entries(src).forEach(([k,v])=>{
-          if (typeof v === 'string'){ out.push({id:String(k), name:v}); }
-          else if (v && typeof v === 'object'){
-            const name = firstString(v.name, v.brand, v.brandName, v.label);
-            const id   = firstDefined(v.id, v.brand_id, v.brandId, v.code, k, name);
-            if (name) out.push({ id:String(id), name:String(name) });
-          }
-        });
-      }
-      // 去重/清洗
-      const seen = new Set();
-      return out
-        .map(b => ({ id:String(b.id).trim(), name:String(b.name).trim() }))
-        .filter(b => b.name && !seen.has(b.id) && seen.add(b.id));
-    }
+  // 建日曆（1hr）
+  const event = createCalendarEvent(formData);
 
-    // 車款正規化：支援 [{...}] 或 {brandId:[...]}
-    function normalizeModels(src, brands){
-      const out = [];
-      const nameToId = new Map(brands.map(b => [String(b.name), String(b.id)]));
-      if (Array.isArray(src)){
-        src.forEach((m,i)=>{
-          if (!m) return;
-          const name = firstString(m.name, m.model);
-          let brand_id = firstDefined(m.brand_id, m.brandId);
-          if (!brand_id){
-            const bname = firstString(m.brand, m.brandName);
-            if (bname && nameToId.has(bname)) brand_id = nameToId.get(bname);
-          }
-          const id = firstDefined(m.id, i+1);
-          if (name && brand_id) out.push({ id:String(id), name:String(name), brand_id:String(brand_id) });
-        });
-      }else if (src && typeof src === 'object'){
-        Object.entries(src).forEach(([bid, arr])=>{
-          if (Array.isArray(arr)){
-            arr.forEach((m,i)=>{
-              const name = firstString(m?.name, m?.model);
-              const id   = firstDefined(m?.id, i+1);
-              if (name) out.push({ id:String(id), name:String(name), brand_id:String(bid) });
-            });
-          }
-        });
-      }
-      return out;
-    }
+  // 取消連結
+  let scriptUrl = '';
+  try { scriptUrl = ScriptApp.getService().getUrl(); } catch (_) {}
+  const cancelLink = scriptUrl ? `${scriptUrl}?cancelCode=${encodeURIComponent(cancelCode)}` : '';
 
-    function firstDefined(...vals){ for (const v of vals) if (v !== undefined && v !== null) return v; }
-    function firstString(...vals){
-      for (const v of vals){
-        if (v == null) continue;
-        if (typeof v === 'string') return v;
-        if (typeof v === 'number') return String(v);
-      }
-      return '';
-    }
+  // 寄信
+  sendConfirmationEmails(formData, cancelLink, event ? event.getId() : '');
 
-    // === 載入可預約時段（GET /action=slots） ===
-    async function fetchSlots(dateStr){
-      if (slotsCache.has(dateStr)){ renderSlots(slotsCache.get(dateStr)); return; }
-      setSelectLoading();
-      const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
-      try{
-        const ctrl = new AbortController();
-        const timer = setTimeout(()=>ctrl.abort(), 10000);
-        const res = await fetch(url, { method:'GET', mode:'cors', signal:ctrl.signal });
-        clearTimeout(timer);
-        const j = await res.json();
-        if (!j.success) throw new Error(j.message || '無法載入時段');
-        slotsCache.set(dateStr, j.data || {});
-        renderSlots(j.data || {});
-      }catch(err1){
-        // 再嘗試一次（無 signal）
-        try{
-          const res2 = await fetch(url, { method:'GET', mode:'cors' });
-          const j2 = await res2.json();
-          if (!j2.success) throw new Error(j2.message || '無法載入時段');
-          slotsCache.set(dateStr, j2.data || {});
-          renderSlots(j2.data || {});
-        }catch(err2){
-          slotEl.innerHTML = `<option value="">無法載入時段</option>`;
-          slotEl.disabled = true;
-          console.error('[slots] load error:', err1, err2);
-          toast('時段載入失敗：' + ((err2 && err2.message) || (err1 && err1.message) || '未知錯誤'), 'error');
+  // 讓該日的時段快取失效（前端重查會拿到最新餘量）
+  try { CacheService.getScriptCache().remove('slots:' + formData.date); } catch(_) {}
+
+  return { success: true, message: '預約成功！確認信已發送至您的電子郵件。', cancelLink };
+}
+
+/* ------------ 可預約時段計算（含 60 秒快取） ------------ */
+function getAvailableSlots(dateStr) {
+  const ALL = ['10:00','11:00','14:00','15:00'];
+  const CAP = 3;
+
+  const cache = CacheService.getScriptCache();
+  const key = 'slots:' + dateStr;
+  const hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+
+  const counts = Object.fromEntries(ALL.map(t => [t, 0]));
+  const id = PropertiesService.getScriptProperties().getProperty('RESERVATION_SPREADSHEET_ID');
+
+  if (id) {
+    const sh = SpreadsheetApp.openById(id).getSheets()[0];
+    const last = sh.getLastRow();
+    if (last >= 2) {
+      const rng = sh.getDataRange().getValues(); // 讀整表一次，最省往返
+      const headers = rng[0] || [];
+      const timeCol  = headers.indexOf('預約時間');
+      const statusCol= headers.indexOf('預約狀態');
+      for (let r=1; r<rng.length; r++){
+        const row = rng[r];
+        const status = row[statusCol];
+        const dt = row[timeCol];
+        if (status === '已取消') continue;
+        if (dt instanceof Date && Utilities.formatDate(dt, TZ, 'yyyy-MM-dd') === dateStr) {
+          const t = Utilities.formatDate(dt, TZ, 'HH:mm');
+          if (counts[t] != null) counts[t]++;
         }
       }
     }
-    function setSelectLoading(){ slotEl.disabled = true; slotEl.innerHTML = `<option value="">載入中...</option>`; }
-    function renderSlots(slots){
-      const keys = Object.keys(slots||{}).sort();
-      slotEl.innerHTML = '';
-      if (keys.length === 0){
-        slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
-        slotEl.disabled = true; return;
-      }
-      slotEl.disabled = false;
-      slotEl.appendChild(new Option('請選擇時段',''));
-      keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
+  }
+
+  const out = {};
+  for (const t of ALL){
+    const remain = CAP - (counts[t]||0);
+    if (remain > 0) out[t] = remain;
+  }
+  cache.put(key, JSON.stringify(out), 60); // 快取 60 秒
+  return out;
+}
+
+/* ------------ 取消預約（供 ?cancelCode= 使用） ------------ */
+function cancelAppointment(cancelCode) {
+  try {
+    const spreadsheetId = PropertiesService.getScriptProperties().getProperty('RESERVATION_SPREADSHEET_ID');
+    if (!spreadsheetId) return { success: false, message: '系統錯誤：無法找到預約記錄表。' };
+
+    const ss = SpreadsheetApp.openById(spreadsheetId);
+    const sheet = ss.getSheets()[0];
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0] || [];
+    const cancelIdx = headers.indexOf('取消碼');
+    const statusIdx = headers.indexOf('預約狀態');
+    const nameIdx   = headers.indexOf('姓名');
+    const timeIdx   = headers.indexOf('預約時間');
+    const itemIdx   = headers.indexOf('預約項目');
+
+    if (cancelIdx === -1 || statusIdx === -1) {
+      return { success: false, message: '試算表格式不符，請聯繫客服。' };
     }
 
-    // === 送出 ===
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
-      for (const id of requiredIds){
-        const el = (id==='slot') ? slotEl : document.getElementById(id);
-        if (!el || !el.value){ toast('請填寫所有必填欄位。','error'); return; }
-      }
-      submitBtn.disabled = true; submitBtn.textContent = '提交中...'; toast('', 'hide');
-      try{
-        const payload = {
-          action:'reserve',
-          item:  document.getElementById('item').value,
-          date:  dateEl.value,
-          time:  slotEl.value,
-          brand: brandEl.options[brandEl.selectedIndex]?.text || brandEl.value,
-          model: modelEl.value,
-          name:  document.getElementById('name').value,
-          phone: document.getElementById('phone').value,
-          email: document.getElementById('email').value,
-          memo:  document.getElementById('memo').value || ''
-        };
-        const res  = await fetch(APPS_SCRIPT_URL, {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify(payload),
-          mode:'cors'
-        });
-        const j = await res.json();
-        if (j.success){
-          toast(j.message || '預約成功！','success');
-          form.reset(); picker.clearSelection();
-          slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
-          modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
-          slotsCache.delete(payload.date); // 讓下一次重新抓可用名額
-        }else{
-          throw new Error(j.message || '預約失敗');
+    for (let r = 1; r < data.length; r++) {
+      const row = data[r];
+      if (String(row[cancelIdx]) === String(cancelCode)) {
+        if (String(row[statusIdx]) === '已取消') {
+          return { success: false, message: '此預約已取消。' };
         }
-      }catch(err){
-        console.error('[reserve] submit error:', err);
-        toast(err.message || '伺服器錯誤，請稍後再試。','error');
-      }finally{
-        submitBtn.disabled = false; submitBtn.textContent = '立即預約';
+        // 標記取消
+        sheet.getRange(r + 1, statusIdx + 1).setValue('已取消');
+
+        // 嘗試刪日曆
+        try {
+          const cal = CalendarApp.getDefaultCalendar();
+          const start = (row[timeIdx] instanceof Date) ? row[timeIdx] : new Date(row[timeIdx]);
+          const end   = new Date(start.getTime() + 60 * 60 * 1000);
+          const title = `【${row[itemIdx] || '車輛檢測'}預約】：${row[nameIdx] || ''}`;
+          const events = cal.getEvents(start, end);
+          for (let i = 0; i < events.length; i++) {
+            if (events[i].getTitle() === title) { events[i].deleteEvent(); break; }
+          }
+        } catch (_) {}
+
+        // 通知商家
+        const when = (row[timeIdx] instanceof Date) ? row[timeIdx] : new Date(row[timeIdx]);
+        sendCancellationEmailToMerchant({
+          name: row[nameIdx] || '',
+          item: row[itemIdx] || '車輛檢測',
+          date: Utilities.formatDate(when, TZ, 'yyyy-MM-dd'),
+          time: Utilities.formatDate(when, TZ, 'HH:mm')
+        });
+
+        // 讓該日時段快取失效
+        try { CacheService.getScriptCache().remove('slots:' + Utilities.formatDate(when, TZ, 'yyyy-MM-dd')); } catch(_) {}
+
+        return { success: true, message: '預約已成功取消。' };
       }
-    });
-
-    // 訊息提示
-    function toast(msg, type){
-      if (type === 'hide'){ statusEl.style.display = 'none'; return; }
-      statusEl.textContent = msg || '';
-      statusEl.className = '';
-      if (type === 'success') statusEl.classList.add('success');
-      if (type === 'error')   statusEl.classList.add('error');
-      statusEl.style.display = msg ? 'block' : 'none';
     }
+    return { success: false, message: '取消碼無效或預約不存在。' };
 
-    // iOS 避免雙擊放大
-    let lastTouch = 0;
-    document.addEventListener('touchend', (e)=>{
-      const now = Date.now();
-      if (now - lastTouch <= 300) e.preventDefault();
-      lastTouch = now;
-    }, {passive:false});
-  </script>
-</body>
-</html>
+  } catch (err) {
+    return { success: false, message: '取消失敗，請稍後再試或聯繫客服。' };
+  }
+}
+
+/* ------------ 試算表（建立/取得） ------------ */
+function getOrCreateSpreadsheet() {
+  const key = 'RESERVATION_SPREADSHEET_ID';
+  const id  = PropertiesService.getScriptProperties().getProperty(key);
+  if (id) return SpreadsheetApp.openById(id);
+
+  const ss = SpreadsheetApp.create('【標車酷-檢測預約紀錄】');
+  const sheet = ss.getSheets()[0];
+  sheet.appendRow([
+    '預約時間','姓名','電子郵件','聯絡電話','備註','填單時間',
+    '取消碼','預約狀態','預約項目','廠牌','車款' // 預設含廠牌/車款
+  ]);
+  PropertiesService.getScriptProperties().setProperty(key, ss.getId());
+  return ss;
+}
+
+/* ------------ 建立日曆事件（1hr） ------------ */
+function createCalendarEvent(formData) {
+  const cal   = CalendarApp.getDefaultCalendar();
+  const start = new Date(`${formData.date}T${formData.time}:00`);
+  const end   = new Date(start.getTime() + 60 * 60 * 1000);
+  const title = `【${formData.item}預約】：${formData.name}`;
+  const desc  = [
+    `客戶姓名: ${formData.name}`,
+    `手機號碼: ${formData.phone}`,
+    `Email: ${formData.email}`,
+    `備註: ${formData.memo || '無'}`,
+    `預約項目: ${formData.item}`,
+    `廠牌: ${formData.brand}`,
+    `車款: ${formData.model}`
+  ].join('\n');
+
+  return cal.createEvent(title, start, end, {
+    description: desc,
+    guests: formData.email,
+    sendInvites: true
+  });
+}
+
+/* ------------ 寄信：預約成功（包含廠牌／車款） ------------ */
+function sendConfirmationEmails(formData, cancelLink, eventId) {
+  const customerEmail = formData.email;
+  const merchantEmail = 'peter.kuo@sicar.com.tw, it@sicar.com.tw';
+
+  const cs = `標車酷 - 您的${formData.item}預約已成功！`;
+  const cb = [
+    `親愛的 ${formData.name} 您好，`,
+    ``,
+    `您的${formData.item}預約已成功建立，詳細資訊如下：`,
+    `- 預約項目：${formData.item}`,
+    `- 預約日期：${formData.date}`,
+    `- 預約時段：${formData.time}`,
+    `- 廠牌：${formData.brand}`,
+    `- 車款：${formData.model}`,
+    `- 您的姓名：${formData.name}`,
+    `- 您的手機：${formData.phone}`,
+    `- 您的電子郵件：${formData.email}`,
+    `- 備註：${formData.memo || '無'}`,
+    ``,
+    cancelLink ? `如需取消預約，請點擊：${cancelLink}` : '',
+    ``,
+    `感謝您的預約！`
+  ].join('\n');
+
+  const ms = `【新預約通知】${formData.item}預約：${formData.name}`;
+  const mb = [
+    `您好，`,
+    ``,
+    `有一筆新的${formData.item}預約：`,
+    `- 客戶姓名：${formData.name}`,
+    `- 預約日期：${formData.date}`,
+    `- 預約時段：${formData.time}`,
+    `- 廠牌：${formData.brand}`,
+    `- 車款：${formData.model}`,
+    `- 手機號碼：${formData.phone}`,
+    `- 電子郵件：${formData.email}`,
+    `- 備註：${formData.memo || '無'}`,
+    cancelLink ? `- 取消連結：${cancelLink}` : ''
+  ].join('\n');
+
+  MailApp.sendEmail(customerEmail, cs, cb);
+  MailApp.sendEmail(merchantEmail, ms, mb);
+}
+
+/* ------------ 寄信：取消通知（商家） ------------ */
+function sendCancellationEmailToMerchant(formData) {
+  const merchantEmail = 'peter.kuo@sicar.com.tw, it@sicar.com.tw';
+  const subj = `【預約取消通知】${formData.item}預約：${formData.name}`;
+  const body = [
+    `您好，`,
+    ``,
+    `以下預約已被取消：`,
+    `- 客戶姓名：${formData.name}`,
+    `- 預約項目：${formData.item}`,
+    `- 預約日期：${formData.date}`,
+    `- 預約時段：${formData.time}`,
+    ``,
+    `此為系統自動發送，請勿直接回覆。`
+  ].join('\n');
+
+  MailApp.sendEmail(merchantEmail, subj, body);
+}
+
+/* ------------ 字串轉義 ------------ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
