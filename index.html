@@ -18,13 +18,8 @@
     html{-webkit-text-size-adjust:100%}
     body{
       font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
-      background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
-      min-height:100svh;
-      padding:
-        calc(16px + env(safe-area-inset-top))
-        16px
-        calc(16px + env(safe-area-inset-bottom))
-        16px;
+      background:var(--bg); color:var(--text); margin:0; display:flex; align-items:flex-start; justify-content:center;
+      min-height:100svh; padding: max(16px,calc(16px + env(safe-area-inset-top))) 16px 24px;
     }
     .container{
       width:100%; max-width:720px; background:var(--card); border-radius:14px; padding:24px;
@@ -39,7 +34,7 @@
 
     /* 控制項樣式（統一高度、避免文字上漂） */
     .control{
-      font:inherit; font-size:16px; /* iOS 防放大 */
+      font:inherit; font-size:16px;
       height:var(--ctrl-h); line-height:1.4;
       width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--border);
       background:var(--input); color:var(--text); box-sizing:border-box;
@@ -147,10 +142,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
-    // === Apps Script Web App URL（/exec 結尾）===
+    /* ========= 你的 Apps Script Web App URL ========= */
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
 
-    // DOM
+    /* ========= DOM ========= */
     const form      = document.getElementById('form');
     const dateEl    = document.getElementById('datepicker');
     const slotEl    = document.getElementById('slot');
@@ -160,7 +155,7 @@
     const statusEl  = document.getElementById('status');
     const submitBtn = document.getElementById('submit');
 
-    // 日期選擇器
+    /* ========= 日期 ========= */
     const today = new Date();
     const max   = new Date(); max.setMonth(max.getMonth()+2);
     const picker = new Litepicker({
@@ -178,24 +173,8 @@
       if (d) fetchSlots(d);
     });
 
-    // ===== 品牌/車款資料（從本機 data/；零 CORS）=====
-    let brands = [];   // [{id, name}]
-    let models = [];   // [{id, name, brand_id}]
+    /* ========= 廠牌 / 車款 from /data（零 CORS） ========= */
     const slotsCache = new Map();
-
-   // 將任何型別的 name/label 轉成乾淨字串，避免出現 [object Object]
-function flatName(v){
-  if (v == null) return '';
-  if (typeof v === 'string') return v;
-  if (typeof v === 'number') return String(v);
-  if (Array.isArray(v)) return v.map(flatName).join(' ').trim();
-  if (typeof v === 'object') {
-    const cand = v.name ?? v.label ?? v.title ?? v.brand ?? v.brandName ?? v.model ?? v.value;
-    return flatName(cand ?? JSON.stringify(v));
-  }
-  return String(v);
-}
-    
     initBrandsModels();
 
     async function initBrandsModels(){
@@ -210,66 +189,25 @@ function flatName(v){
         if (!bRes.ok) throw new Error('brands.json 載入失敗（HTTP '+bRes.status+'）');
         if (!mRes.ok) throw new Error('models.json 載入失敗（HTTP '+mRes.status+'）');
 
-        let rawBrands = await bRes.json();
-        let rawModels = await mRes.json();
+        const rawBrands = await bRes.json();
+        const rawModels = await mRes.json();
 
-        // 允許：array / {data:[...]} / {"1":"Toyota"} / [{brand:"Toyota"}]
-        const normalizeToArray = (src) => {
-          if (Array.isArray(src)) return src;
-          if (src && Array.isArray(src.data)) return src.data;
-          if (src && typeof src === 'object') {
-            return Object.entries(src).map(([id, val]) => {
-              if (val && typeof val === 'object') return { id, ...val };
-              return { id, name: String(val) };
-            });
-          }
-          return [];
-        };
+        const brands = normalizeBrands(rawBrands);       // [{id,name}]
+        const models = normalizeModels(rawModels, brands); // [{id,name,brand_id}]
 
-        rawBrands = normalizeToArray(rawBrands);
-        rawModels = normalizeToArray(rawModels);
+        // ---- 填入品牌（用 name 當顯示、id 當值）----
+        brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
+        brands.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
+        brandEl.disabled = false;
+        brandErr.style.display = 'none';
 
- // 寫入全域 brands / models（將 name 壓平成字串，避免 [object Object]）
-brands = rawBrands.map((b, i) => {
-  const id   = b.id ?? b.brand_id ?? b.brandId ?? b.code ?? (i + 1);
-  const name = flatName(b.name ?? b.brand ?? b.brandName ?? b);
-  return { id: String(id), name: name.trim() };
-}).filter(b => b.name && b.name !== '[object Object]');
-
-        const brandNameToId = new Map(brands.map(b => [String(b.name).trim(), String(b.id)]));
-
-        models = rawModels.map((m, i) => {
-          const name = m.name ?? m.model ?? String(m);
-          let brand_id = m.brand_id ?? m.brandId;
-          if (!brand_id) {
-            const bname = m.brand ?? m.brandName;
-            if (bname && brandNameToId.has(String(bname).trim())) {
-              brand_id = brandNameToId.get(String(bname).trim());
-            }
-          }
-          return { id: m.id ?? (i+1), name, brand_id: brand_id ?? '' };
-        }).filter(m => m.name);
-
-        // 填品牌
-    const brandEl = document.getElementById('brand');
-const modelEl = document.getElementById('model');
-const brandErr = document.getElementById('brandErr');
-
-brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
-brands.forEach(b => {
-  brandEl.appendChild(new Option(b.name, b.id));
-});
-brandEl.disabled = false;
-brandErr.style.display = 'none';
-
-        // 切品牌 → 篩車款
+        // ---- 切品牌 → 篩車款 ----
         brandEl.onchange = () => {
           const id = String(brandEl.value || '');
           modelEl.innerHTML = '<option value="">請選擇車款</option>';
           if (!id) { modelEl.disabled = true; return; }
-          models
-            .filter(m => String(m.brand_id) === id)
-            .forEach(m => modelEl.appendChild(new Option(m.name, m.name)));
+          models.filter(m => String(m.brand_id) === id)
+                .forEach(m => modelEl.appendChild(new Option(m.name, m.name)));
           modelEl.disabled = false;
         };
 
@@ -286,7 +224,86 @@ brandErr.style.display = 'none';
       }
     }
 
-    // ===== 時段（含快取 + 預熱 + 逾時重試）=====
+    /* ---- 將 brands 正規化成 [{id,name}] ---- */
+    function normalizeBrands(src){
+      const out = [];
+      if (Array.isArray(src)){
+        // 可能是：["Toyota", ...] 或 [{id,name}, {...}]
+        src.forEach((b,i) => {
+          if (typeof b === 'string'){
+            out.push({ id:String(i+1), name:b });
+          }else if (b && typeof b === 'object'){
+            const name = firstString(b.name, b.brand, b.brandName, b.label, String(b));
+            const id   = String(firstDefined(b.id, b.brand_id, b.brandId, b.code, name, i+1));
+            out.push({ id, name });
+          }
+        });
+      }else if (src && typeof src === 'object'){
+        // 可能是：{ "1":"Toyota", "2":"Honda" } 或 { "1":{name:"Toyota"} }
+        Object.entries(src).forEach(([k,v])=>{
+          if (typeof v === 'string'){
+            out.push({ id:String(k), name:v });
+          }else if (v && typeof v === 'object'){
+            const name = firstString(v.name, v.brand, v.brandName, v.label, String(v));
+            const id   = String(firstDefined(v.id, v.brand_id, v.brandId, v.code, k, name));
+            out.push({ id, name });
+          }
+        });
+      }
+      // 去除空白與重複
+      const seen = new Set();
+      return out
+        .map(b => ({ id:String(b.id).trim(), name:String(b.name).trim() }))
+        .filter(b => b.name && !seen.has(b.id) && seen.add(b.id));
+    }
+
+    /* ---- 將 models 正規化成 [{id,name,brand_id}] ---- */
+    function normalizeModels(src, brands){
+      const out = [];
+      const nameToId = new Map(brands.map(b => [b.name, b.id]));
+
+      if (Array.isArray(src)){
+        // 可能是 [{id,name,brand_id}] 或 [{model, brand}] 等
+        src.forEach((m,i)=>{
+          if (!m) return;
+          const name = firstString(m.name, m.model, String(m));
+          let brand_id = firstDefined(m.brand_id, m.brandId);
+          if (!brand_id){
+            const bname = firstString(m.brand, m.brandName, '');
+            if (bname && nameToId.has(bname)) brand_id = nameToId.get(bname);
+          }
+          const id = String(firstDefined(m.id, i+1));
+          if (name && brand_id) out.push({ id, name, brand_id:String(brand_id) });
+        });
+      }else if (src && typeof src === 'object'){
+        // 可能是 { "1":[{id,name},...], "2":[...] } 以 brand_id 當 key
+        Object.entries(src).forEach(([bid, arr])=>{
+          if (Array.isArray(arr)){
+            arr.forEach((m,i)=>{
+              const name = firstString(m?.name, m?.model, String(m));
+              const id   = String(firstDefined(m?.id, i+1));
+              if (name) out.push({ id, name, brand_id:String(bid) });
+            });
+          }
+        });
+      }
+      return out;
+    }
+
+    function firstDefined(...vals){
+      for (const v of vals) if (v !== undefined && v !== null) return v;
+      return undefined;
+    }
+    function firstString(...vals){
+      for (const v of vals){
+        if (v === undefined || v === null) continue;
+        if (typeof v === 'string') return v;
+        if (typeof v === 'number') return String(v);
+      }
+      return '';
+    }
+
+    /* ========= 時段（含快取 + 預熱 + 逾時重試） ========= */
     async function fetchSlots(dateStr) {
       if (slotsCache.has(dateStr)) { renderSlots(slotsCache.get(dateStr)); return; }
       setSelectLoading();
@@ -333,24 +350,20 @@ brandErr.style.display = 'none';
       keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
     }
 
-    // 預熱未來 7 天（首度點擊日期時觸發一次）
-    dateEl.addEventListener('focus', prewarmNearbyDates, { once: true });
-    function prewarmNearbyDates() {
+    // 預熱未來 7 天（第一次點日期時觸發）
+    dateEl.addEventListener('focus', () => {
       const base = new Date();
-      const dates = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
         const s = d.toISOString().slice(0,10);
-        if (!slotsCache.has(s)) dates.push(s);
-      }
-      dates.forEach(d => {
-        fetch(`${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(d)}`)
-          .then(r => r.json()).then(j => { if (j && j.success) slotsCache.set(d, j.data || {}); })
+        if (slotsCache.has(s)) continue;
+        fetch(`${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(s)}`)
+          .then(r => r.json()).then(j => { if (j && j.success) slotsCache.set(s, j.data || {}); })
           .catch(()=>{});
-      });
-    }
+      }
+    }, { once: true });
 
-    // ===== 送出 =====
+    /* ========= 送出 ========= */
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
@@ -369,8 +382,8 @@ brandErr.style.display = 'none';
           item:  document.getElementById('item').value,
           date:  dateEl.value,
           time:  slotEl.value,
-          brand: brandEl.options[brandEl.selectedIndex]?.text || brandEl.value,
-          model: modelEl.value,
+          brand: brandEl.options[brandEl.selectedIndex]?.text || brandEl.value, // 儲存品牌名稱
+          model: modelEl.value,                                                  // 儲存車款名稱
           name:  document.getElementById('name').value,
           phone: document.getElementById('phone').value,
           email: document.getElementById('email').value,
