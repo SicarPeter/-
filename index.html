@@ -34,10 +34,10 @@
     .sub{margin:6px 0 18px; text-align:center; color:var(--muted); font-size:14px}
     .grid{display:grid; gap:16px}
     .row{display:grid; gap:16px; grid-template-columns:1fr 1fr}
-    .form-group{display:grid; gap:8px}
+    .form-group{display:grid; gap:8px; align-self:start}
     label{font-weight:700; font-size:14px}
 
-    /* 統一表單控制項 */
+    /* 控制項樣式（統一高度、避免文字上漂） */
     .control{
       font:inherit; font-size:16px;
       height:var(--ctrl-h); line-height:1.4;
@@ -56,7 +56,8 @@
     }
     textarea.control{height:auto; min-height:96px; line-height:1.5}
 
-    .help{color:var(--muted); font-size:12px}
+    .help{color:var(--muted); font-size:12px; min-height:18px}
+    .help.spacer{visibility:hidden} /* 讓左右欄高度一致 */
 
     button.control{
       background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer; height:var(--ctrl-h);
@@ -66,6 +67,7 @@
     #status{display:none; margin-top:4px; font-weight:700; text-align:center}
     #status.success{display:block; color:var(--success)}
     #status.error{display:block; color:var(--danger)}
+    .field-error{color:var(--danger); font-size:12px; margin-top:-6px}
 
     @media (max-width:760px){
       .container{padding:18px}
@@ -97,6 +99,7 @@
           <select id="slot" name="time" class="control" required disabled>
             <option value="">請先選擇日期</option>
           </select>
+          <div class="help spacer">占位</div>
         </div>
       </div>
 
@@ -106,6 +109,7 @@
           <select id="brand" name="brand" class="control" required disabled>
             <option value="">載入中...</option>
           </select>
+          <div id="brandErr" class="field-error" style="display:none"></div>
         </div>
         <div class="form-group">
           <label for="model">車款</label>
@@ -143,7 +147,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
-    // === 你的 Apps Script Web App URL（/exec 結尾）===
+    // === Apps Script Web App URL（/exec 結尾）===
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
 
     // DOM
@@ -152,6 +156,7 @@
     const slotEl    = document.getElementById('slot');
     const brandEl   = document.getElementById('brand');
     const modelEl   = document.getElementById('model');
+    const brandErr  = document.getElementById('brandErr');
     const statusEl  = document.getElementById('status');
     const submitBtn = document.getElementById('submit');
 
@@ -173,36 +178,35 @@
       if (d) fetchSlots(d);
     });
 
-    // ===== 品牌/車款資料（從本機 data/，零 CORS）=====
-    let brands = [];       // [{id, name}]
-    let models = [];       // [{id, name, brand_id/brandId/brand/brandName}]
+    // ===== 品牌/車款資料（從本機 data/；零 CORS）=====
+    let brands = [];   // [{id, name}]
+    let models = [];   // [{id, name, brand_id}]
     const slotsCache = new Map();
 
     initBrandsModels();
 
     async function initBrandsModels(){
       try{
-        // 用絕對 URL 防止子路徑問題
-        const brandsURL = new URL('data/brands.json', location.href).href;
-        const modelsURL = new URL('data/models.json', location.href).href;
+        // 保守的路徑推導（支援子路徑）
+        const brandsURL = new URL('./data/brands.json', document.baseURI).href;
+        const modelsURL = new URL('./data/models.json', document.baseURI).href;
 
         const [bRes, mRes] = await Promise.all([
-          fetch(brandsURL, {cache:'no-cache'}),
-          fetch(modelsURL, {cache:'no-cache'})
+          fetch(brandsURL, {cache:'no-store'}),
+          fetch(modelsURL, {cache:'no-store'})
         ]);
-        if (!bRes.ok) throw new Error('brands.json 載入失敗 ('+bRes.status+')');
-        if (!mRes.ok) throw new Error('models.json 載入失敗 ('+mRes.status+')');
+        if (!bRes.ok) throw new Error('brands.json 載入失敗（HTTP '+bRes.status+'）');
+        if (!mRes.ok) throw new Error('models.json 載入失敗（HTTP '+mRes.status+'）');
 
         const rawBrands = await bRes.json();
         const rawModels = await mRes.json();
 
-        // 寬鬆解析：允許多種欄位名稱
+        // 寬鬆解析
         brands = (Array.isArray(rawBrands) ? rawBrands : []).map((b, i)=>({
           id: b.id ?? b.brand_id ?? b.brandId ?? (i+1),
           name: b.name ?? b.brand ?? b.brandName ?? String(b)
         })).filter(b => b.name);
 
-        // 建品牌名稱 -> id 對照
         const brandNameToId = new Map(brands.map(b => [String(b.name).trim(), String(b.id)]));
 
         models = (Array.isArray(rawModels) ? rawModels : []).map((m, i)=>{
@@ -215,10 +219,11 @@
           return { id: m.id ?? (i+1), name, brand_id: bid ?? '' };
         }).filter(m => m.name);
 
-        // 填入品牌
+        // 填品牌
         brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
         brands.forEach(b => brandEl.appendChild(new Option(b.name, b.id)));
         brandEl.disabled = false;
+        brandErr.style.display = 'none';
 
         brandEl.addEventListener('change', () => {
           const id = String(brandEl.value || '');
@@ -233,7 +238,10 @@
         brandEl.innerHTML = `<option value="">品牌載入失敗</option>`;
         modelEl.innerHTML = `<option value="">車款載入失敗</option>`;
         brandEl.disabled = true; modelEl.disabled = true;
-        toast('品牌/車款載入失敗：' + (err && err.message ? err.message : '未知錯誤'), 'error');
+        brandErr.textContent = (err && err.message) ? err.message : '未知錯誤';
+        brandErr.style.display = 'block';
+        console.error('[brands/models] load error:', err);
+        toast('品牌/車款載入失敗：' + ((err && err.message) || '未知錯誤'), 'error');
       }
     }
 
@@ -254,7 +262,6 @@
         slotsCache.set(dateStr, json.data || {});
         renderSlots(json.data || {});
       } catch (err1) {
-        // 退回再試一次（無 signal）
         try {
           const res2 = await fetch(url, { method:'GET', mode:'cors' });
           const json2 = await res2.json();
@@ -264,6 +271,7 @@
         } catch (err2) {
           slotEl.innerHTML = `<option value="">無法載入時段</option>`;
           slotEl.disabled = true;
+          console.error('[slots] load error:', err1, err2);
           toast('時段載入失敗：' + ((err2 && err2.message) || (err1 && err1.message) || '未知錯誤'), 'error');
         }
       }
@@ -285,13 +293,13 @@
       keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
     }
 
-    // 開始互動時預熱未來 7 天
+    // 預熱未來 7 天（首度點擊日期時觸發一次）
     dateEl.addEventListener('focus', prewarmNearbyDates, { once: true });
     function prewarmNearbyDates() {
-      const today = new Date();
+      const base = new Date();
       const dates = [];
       for (let i = 0; i < 7; i++) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+        const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
         const s = d.toISOString().slice(0,10);
         if (!slotsCache.has(s)) dates.push(s);
       }
@@ -339,16 +347,15 @@
 
         if (json.success) {
           toast(json.message || '預約成功！', 'success');
-          // 重置表單
           form.reset();
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           brandEl.selectedIndex = 0; modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
-          // 清快取，避免隔壁使用者看到舊餘量
           slotsCache.delete(payload.date);
         } else {
           throw new Error(json.message || '預約失敗');
         }
       } catch (err) {
+        console.error('[reserve] submit error:', err);
         toast(err.message || '伺服器錯誤，請稍後再試。', 'error');
       } finally {
         submitBtn.disabled = false;
