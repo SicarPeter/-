@@ -183,6 +183,19 @@
     let models = [];   // [{id, name, brand_id}]
     const slotsCache = new Map();
 
+   // 將任何型別的 name/label 轉成乾淨字串，避免出現 [object Object]
+function flatName(v){
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return v.map(flatName).join(' ').trim();
+  if (typeof v === 'object') {
+    const cand = v.name ?? v.label ?? v.title ?? v.brand ?? v.brandName ?? v.model ?? v.value;
+    return flatName(cand ?? JSON.stringify(v));
+  }
+  return String(v);
+}
+    
     initBrandsModels();
 
     async function initBrandsModels(){
