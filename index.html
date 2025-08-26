@@ -70,7 +70,7 @@
     }
     button.control:disabled{opacity:.6; cursor:not-allowed}
 
-    /* 新增的 Toast 彈出視窗樣式 */
+    /* ✅ 新增的 Toast 彈出視窗樣式，使用您的配色 */
     #toast-container {
       position: fixed;
       bottom: 24px;
@@ -115,13 +115,14 @@
     <p class="sub">定點檢測 · 台北市中山區濱江街 326-1 號</p>
 
     <form id="form" class="grid" novalidate>
-      <div class="form-group">
+            <div class="form-group">
         <label for="item">預約項目</label>
         <select id="item" name="item" class="control" required>
           <option value="車輛檢測">車輛檢測</option>
         </select>
       </div>
-      <div class="row">
+
+            <div class="row">
         <div class="form-group">
           <label for="datepicker">日期</label>
           <input id="datepicker" name="date" type="text" class="control" inputmode="none" autocomplete="off" placeholder="請先選擇日期" readonly required>
@@ -134,7 +135,8 @@
           </select>
         </div>
       </div>
-      <div class="row">
+
+            <div class="row">
         <div class="form-group">
           <label for="brand">廠牌</label>
           <select id="brand" name="brand" class="control" required disabled>
@@ -148,7 +150,8 @@
           </select>
         </div>
       </div>
-      <div class="row">
+
+            <div class="row">
         <div class="form-group">
           <label for="name">姓名</label>
           <input id="name" name="name" type="text" class="control" placeholder="請輸入您的姓名" required>
@@ -158,36 +161,44 @@
           <input id="phone" name="phone" type="tel" class="control" inputmode="numeric" pattern="^(09|\\+?8869)\\d{8}$" placeholder="09xxxxxxxx" required>
         </div>
       </div>
+
       <div class="form-group">
         <label for="email">電子郵件</label>
         <input id="email" name="email" type="email" class="control" placeholder="example@gmail.com" required>
       </div>
+
       <div class="form-group">
         <label for="memo">備註（可輸入 LINE ID 或其他需求）</label>
         <textarea id="memo" name="memo" class="control" rows="3" placeholder="選填"></textarea>
       </div>
+
       <button id="submit" type="submit" class="control">立即預約</button>
       <div id="status"></div>
+     
     </form>
   </div>
 
-  <div id="toast-container">
+    <div id="toast-container">
     <div id="toast-message"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
+    /* ===== Endpoints ===== */
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
     const BRAND_JSON = './data/brands.json';
     const MODEL_JSON = './data/models.json';
 
+    /* ===== DOM ===== */
     const form = document.getElementById('form');
     const dateEl = document.getElementById('datepicker');
     const slotEl = document.getElementById('slot');
     const brandEl = document.getElementById('brand');
     const modelEl = document.getElementById('model');
+    const statusEl = document.getElementById('status');
     const submitBtn = document.getElementById('submit');
 
+    /* ===== Date Picker ===== */
     const today = new Date();
     const max = new Date(); max.setMonth(max.getMonth() + 2);
     const picker = new Litepicker({
@@ -205,6 +216,7 @@
       if (d) fetchSlots(d);
     });
 
+    /* ===== Local cache（brands：24h；models：每品牌 6h） ===== */
     const LS = {
       get(k, sec){
         try{
@@ -217,6 +229,7 @@
       set(k, v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})) }
     };
 
+    /* ===== 初始化：品牌 ===== */
     initBrands();
     async function initBrands(){
       brandEl.disabled = true;
@@ -306,6 +319,7 @@
       modelEl.disabled = false;
     }
 
+    /* ===== 時段（Apps Script） ===== */
     async function fetchSlots(dateStr) {
       slotEl.disabled = true;
       slotEl.innerHTML = `<option value="">載入中...</option>`;
@@ -331,6 +345,7 @@
       }
     }
 
+    /* ===== 送出（x-www-form-urlencoded，避免 CORS 預檢） ===== */
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
@@ -375,22 +390,31 @@
       }
     });
 
-    // 新的 toast 函式，用於顯示彈出視窗
+    /* ✅ 覆寫舊的 toast 函式，用於顯示彈出視窗 */
     function toast(msg, type) {
       const toastContainer = document.getElementById('toast-container');
       const toastMessage = document.getElementById('toast-message');
-      if (!toastContainer || !toastMessage) return;
-
+      if (!toastContainer || !toastMessage) {
+        // 若 toast 元素不存在，回退到舊的 #status 顯示方式
+        const statusEl = document.getElementById('status');
+        if (statusEl) {
+          if (type === 'hide') { statusEl.style.display = 'none'; return; }
+          statusEl.textContent = msg || '';
+          statusEl.className = '';
+          if (type === 'success') statusEl.classList.add('success');
+          if (type === 'error') statusEl.classList.add('error');
+          statusEl.style.display = msg ? 'block' : 'none';
+        }
+        return;
+      }
       if (type === 'hide' || !msg) {
         toastContainer.classList.remove('show');
         toastContainer.className = '';
         return;
       }
-
       toastMessage.textContent = msg;
       toastContainer.className = '';
       toastContainer.classList.add(type, 'show');
-
       clearTimeout(toast.timer);
       toast.timer = setTimeout(() => {
         toastContainer.classList.remove('show');
