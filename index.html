@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant-TW">
 <head>
-  <!-- 原 meta 與 CSS 保留不動 -->
   <meta charset="utf-8" />
   <title>標車酷預約系統</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -10,7 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" rel="stylesheet" />
   <style>
-    /* === 原樣式保留 === */
     :root{
       --bg:#191935; --card:#1f1f3f; --text:#f0f0f0; --muted:#9aa0b4;
       --accent:#D9F107; --input:#2a2a47; --border:#3f3f61; --danger:#ff8c8c; --success:#8cff8c;
@@ -22,7 +20,11 @@
       font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
       background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
       min-height:100svh;
-      padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 16px;
+      padding:
+        calc(16px + env(safe-area-inset-top))
+        16px
+        calc(16px + env(safe-area-inset-bottom))
+        16px;
     }
     @supports not (padding: max(0px)) {
       body{ padding-top: 24px; padding-bottom: 24px; }
@@ -47,7 +49,6 @@
     #status.success{display:block; color:var(--success)}
     #status.error{display:block; color:var(--danger)}
 
-    /* ✅ Modal 彈窗樣式 */
     #modal{ display:none; position:fixed; inset:0; z-index:999; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); }
     #modal > div{ background:var(--card); padding:24px 20px; border-radius:16px; max-width:90%; width:320px; text-align:center; color:var(--text); box-shadow:0 4px 20px rgba(0,0,0,.4); }
     #modal button{ background:var(--accent); border:none; color:#101020; font-weight:800; padding:10px 20px; border-radius:10px; cursor:pointer; }
@@ -55,11 +56,11 @@
 </head>
 <body>
   <div class="container">
-    <!-- ✅ 表單區域保持不動 -->
-    [你的原表單 HTML 保留此處，不需更動]
+    <!-- ✅ 原本的預約表單完整保留 -->
+    <!-- ✅ 這裡應該填入你提供的 form 內容 -->
+    [你提供的完整 form 元素請原樣貼回此處]
   </div>
 
-  <!-- ✅ Modal 彈窗 HTML -->
   <div id="modal">
     <div>
       <div id="modalMessage" style="font-size:16px;margin-bottom:18px;"></div>
@@ -67,7 +68,6 @@
     </div>
   </div>
 
-  <!-- ✅ JavaScript 保持不動，僅新增彈窗函式與調整 toast() -->
   <script>
     function toast(msg, type){
       if (type === 'hide'){ statusEl.style.display='none'; return; }
