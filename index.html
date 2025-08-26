@@ -82,8 +82,69 @@
     #status{display:none; margin-top:4px; font-weight:700; text-align:center}
     #status.success{display:block; color:var(--success)}
     #status.error{display:block; color:var(--danger)}
+    /* Toast 彈出視窗樣式 */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 90%;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  font-weight: 700;
+  font-size: 16px;
+  text-align: center;
+  pointer-events: none; /* 讓使用者可以點擊後方的元素 */
+  animation: fadein 0.5s, fadeout 0.5s 2.5s;
+  visibility: hidden;
+}
+
+#toast-container.success {
+  background-color: var(--success);
+  color: #1f1f3f;
+}
+
+#toast-container.error {
+  background-color: var(--danger);
+  color: var(--text);
+}
+
+/* 移除原有的 #status 樣式，避免衝突 */
+#status {
+  display: none !important;
+}
+
+@keyframes fadein {
+  from {
+    bottom: 0;
+    opacity: 0;
+    visibility: hidden;
+  }
+  to {
+    bottom: 24px;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@keyframes fadeout {
+  from {
+    bottom: 24px;
+    opacity: 1;
+  }
+  to {
+    bottom: 0;
+    opacity: 0;
+    visibility: hidden;
+  }
+}
   </style>
 </head>
+  <div id="toast-container" style="display: none;">
+  <div id="toast-message"></div>
+</div>
 <body>
   <div class="container">
     <h1>標車酷預約系統</h1>
