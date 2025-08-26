@@ -1,462 +1,815 @@
 <!doctype html>
+
 <html lang="zh-Hant-TW">
+
 <head>
+
   <meta charset="utf-8" />
+
   <title>標車酷預約系統</title>
+
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
   <meta name="color-scheme" content="dark light" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
+
   <link href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" rel="stylesheet" />
+
   <style>
+
     :root{
+
       --bg:#191935; --card:#1f1f3f; --text:#f0f0f0; --muted:#9aa0b4;
+
       --accent:#D9F107; --input:#2a2a47; --border:#3f3f61; --danger:#ff8c8c; --success:#8cff8c;
+
       --ctrl-h:48px;
+
     }
+
     html,body{height:100%}
+
     html{-webkit-text-size-adjust:100%}
-    body{
-      font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
-      background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
-      min-height:100svh;
-      padding:
-        calc(16px + env(safe-area-inset-top))
-        16px
-        calc(16px + env(safe-area-inset-bottom))
-        16px;
-    }
 
-    @supports not (padding: max(0px)) {
-      body{ padding-top: 24px; padding-bottom: 24px; }
-    }
+ body{
 
-    @media (max-width:760px){
-      body{ align-items:flex-start; }
-      .container{ margin-top: 8px; }
-    }
+  font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
+
+  background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
+
+  /* 原本：min-height:100svh; padding:16px;  改成下面這段 */
+
+  min-height:100svh;
+
+  padding:
+
+    calc(16px + env(safe-area-inset-top))
+
+    16px
+
+    calc(16px + env(safe-area-inset-bottom))
+
+    16px;               /* iOS Safari 瀏海安全區 */
+
+}
+
+
+
+/* 某些舊瀏覽器不支援 env()，再保底一次 */
+
+@supports not (padding: max(0px)) {
+
+  body{ padding-top: 24px; padding-bottom: 24px; }
+
+}
+
+
+
+/* ✅ 新增：手機改為頂對齊，避免內容被置中推到視窗外 */
+
+@media (max-width:760px){
+
+  body{ align-items:flex-start; }
+
+  .container{ margin-top: 8px; }
+
+}
+
+
 
     .container{
+
       width:100%; max-width:720px; background:var(--card); border-radius:14px; padding:24px;
+
       box-shadow:0 10px 30px rgba(0,0,0,.35);
+
     }
+
     h1{margin:0; font-size:clamp(22px,4.2vw,32px); color:var(--accent); text-align:center; font-weight:800;}
+
     .sub{margin:6px 0 18px; text-align:center; color:var(--muted); font-size:14px}
 
+
+
     .grid{display:grid; gap:16px}
+
     .row{
+
       display:grid; grid-template-columns:1fr 1fr; gap:16px;
-      align-items:start;
+
+      align-items:start; /* 頂端對齊，避免右側時段因左側 help 文下沉 */
+
     }
+
     @media (max-width:760px){ .row{ grid-template-columns:1fr; } }
 
+
+
     .form-group{display:flex; flex-direction:column; gap:8px}
+
     label{font-weight:700; font-size:14px}
 
+
+
+    /* 統一所有欄位高度；使用 padding 垂直置中，避免 line-height 造成 iOS 偏移 */
+
     .control{
+
       font:inherit; font-size:16px;
+
       height:var(--ctrl-h); padding:12px 14px; line-height:normal;
+
       width:100%; border-radius:10px; border:1px solid var(--border);
+
       background:var(--input); color:var(--text); box-sizing:border-box;
+
     }
+
+    /* select 用原生箭頭，最穩定 */
+
     select.control{ background-image:none; padding-right:14px; }
+
+    /* iOS 的 select 垂直置中（避免上下偏）*/
+
     @supports (-webkit-touch-callout:none){
+
       select.control{ padding-top:12px; padding-bottom:12px; }
+
     }
+
+
 
     textarea.control{ height:auto; min-height:96px; line-height:1.5 }
+
     .help{color:var(--muted); font-size:12px}
 
+
+
     button.control{
+
       background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer;
+
       height:var(--ctrl-h);
+
     }
+
     button.control:disabled{opacity:.6; cursor:not-allowed}
 
-    /* ✅ 移除原本的 status 樣式，改用 modal */
-    /* #status{display:none; margin-top:4px; font-weight:700; text-align:center}
+
+
+    #status{display:none; margin-top:4px; font-weight:700; text-align:center}
+
     #status.success{display:block; color:var(--success)}
-    #status.error{display:block; color:var(--danger)} */
 
-    /* ✅ 新增：彈跳視窗樣式 */
-    .modal-overlay{
-      position:fixed; top:0; left:0; width:100%; height:100%;
-      background:rgba(0,0,0,.6); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
-      display:flex; align-items:center; justify-content:center;
-      opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s;
-      padding:16px;
-      z-index:9999;
-    }
-    .modal-overlay.show{opacity:1; visibility:visible}
-    .modal-content{
-      background:var(--card); color:var(--text); padding:24px; border-radius:14px;
-      width:100%; max-width:400px; text-align:center;
-      transform:scale(.9); transition:transform .3s;
-      position:relative;
-    }
-    .modal-overlay.show .modal-content{transform:scale(1)}
-
-    .modal-content .icon{
-      font-size:48px; margin-bottom:16px;
-    }
-    .modal-content .message{
-      font-weight:700; font-size:18px; margin-bottom:16px;
-    }
-    .modal-content .close-btn{
-      background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer;
-      height:44px; width:100%; border-radius:8px;
-    }
-    .modal-content.success .icon{color:var(--success)}
-    .modal-content.error .icon{color:var(--danger)}
+    #status.error{display:block; color:var(--danger)}
 
   </style>
+
 </head>
+
 <body>
+
   <div class="container">
+
     <h1>標車酷預約系統</h1>
+
     <p class="sub">定點檢測 · 台北市中山區濱江街 326-1 號</p>
 
+
+
     <form id="form" class="grid" novalidate>
-            <div class="form-group">
+
+      <!-- 項目 -->
+
+      <div class="form-group">
+
         <label for="item">預約項目</label>
+
         <select id="item" name="item" class="control" required>
+
           <option value="車輛檢測">車輛檢測</option>
+
         </select>
+
       </div>
 
-            <div class="row">
+
+
+      <!-- 日期 / 時段 -->
+
+      <div class="row">
+
         <div class="form-group">
+
           <label for="datepicker">日期</label>
+
+          <!-- ✅ 新增 placeholder 與 readonly -->
+
           <input id="datepicker" name="date" type="text" class="control" inputmode="none" autocomplete="off" placeholder="請先選擇日期" readonly required>
+
           <div class="help">可約 2 個月內</div>
+
         </div>
+
         <div class="form-group">
+
           <label for="slot">時段</label>
+
           <select id="slot" name="time" class="control" required disabled>
+
             <option value="">請先選擇日期</option>
+
           </select>
+
         </div>
+
       </div>
 
-            <div class="row">
+
+
+      <!-- 廠牌 / 車款 -->
+
+      <div class="row">
+
         <div class="form-group">
+
           <label for="brand">廠牌</label>
+
           <select id="brand" name="brand" class="control" required disabled>
+
             <option value="">載入中...</option>
+
           </select>
+
         </div>
+
         <div class="form-group">
+
           <label for="model">車款</label>
+
           <select id="model" name="model" class="control" required disabled>
+
             <option value="">請先選擇廠牌</option>
+
           </select>
+
         </div>
+
       </div>
 
-            <div class="row">
+
+
+      <!-- 基本資料 -->
+
+      <div class="row">
+
         <div class="form-group">
+
           <label for="name">姓名</label>
+
           <input id="name" name="name" type="text" class="control" placeholder="請輸入您的姓名" required>
+
         </div>
+
         <div class="form-group">
+
           <label for="phone">手機號碼</label>
+
           <input id="phone" name="phone" type="tel" class="control" inputmode="numeric" pattern="^(09|\\+?8869)\\d{8}$" placeholder="09xxxxxxxx" required>
+
         </div>
+
       </div>
 
+
+
       <div class="form-group">
+
         <label for="email">電子郵件</label>
+
         <input id="email" name="email" type="email" class="control" placeholder="example@gmail.com" required>
+
       </div>
 
+
+
       <div class="form-group">
+
         <label for="memo">備註（可輸入 LINE ID 或其他需求）</label>
+
         <textarea id="memo" name="memo" class="control" rows="3" placeholder="選填"></textarea>
+
       </div>
+
+
 
       <button id="submit" type="submit" class="control">立即預約</button>
-                 
+
+      <div id="status"></div>
+
+     
+
     </form>
+
   </div>
 
-    <div id="modal" class="modal-overlay">
-    <div class="modal-content">
-      <div id="modal-icon" class="icon"></div>
-      <div id="modal-message" class="message"></div>
-      <button id="modal-close" class="close-btn">確認</button>
-    </div>
-  </div>
+
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+
   <script>
+
     /* ===== Endpoints ===== */
+
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKNqFkl3FqdskRQ_zUD3xvsfUPPuI5RT-5qDW242o3WedCHGNdNT3U-m6k8XT1nG8o/exec';
+
     const BRAND_JSON = './data/brands.json';
+
     const MODEL_JSON = './data/models.json';
 
+
+
     /* ===== DOM ===== */
+
     const form = document.getElementById('form');
+
     const dateEl = document.getElementById('datepicker');
+
     const slotEl = document.getElementById('slot');
+
     const brandEl = document.getElementById('brand');
+
     const modelEl = document.getElementById('model');
+
+    const statusEl = document.getElementById('status');
+
     const submitBtn = document.getElementById('submit');
 
-    // ✅ 新增：彈跳視窗的 DOM
-    const modalEl = document.getElementById('modal');
-    const modalContentEl = document.getElementById('modal-content');
-    const modalIconEl = document.getElementById('modal-icon');
-    const modalMessageEl = document.getElementById('modal-message');
-    const modalCloseBtn = document.getElementById('modal-close');
+
 
     /* ===== Date Picker ===== */
+
     const today = new Date();
+
     const max = new Date(); max.setMonth(max.getMonth() + 2);
+
     const picker = new Litepicker({
+
       element: dateEl,
+
       singleMode: true,
+
       lang: 'zh-TW',
+
       format: 'YYYY-MM-DD',
+
       minDate: today,
+
       maxDate: max,
+
       autoApply: true,
+
       mobileFriendly: true,
+
     });
+
     picker.on('selected', (date) => {
+
       const d = date ? date.format('YYYY-MM-DD') : '';
+
       if (d) fetchSlots(d);
+
     });
+
+
 
     /* ===== Local cache（brands：24h；models：每品牌 6h） ===== */
+
     const LS = {
+
       get(k, sec){
+
         try{
+
           const v = JSON.parse(localStorage.getItem(k) || 'null');
+
           if(!v) return null;
+
           if(sec && (Date.now() - v.t)/1000 > sec) return null;
+
           return v.v;
+
         }catch{return null}
+
       },
+
       set(k, v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})) }
+
     };
 
+
+
     /* ===== 初始化：品牌 ===== */
+
     initBrands();
+
     async function initBrands(){
+
       brandEl.disabled = true;
+
       brandEl.innerHTML = '<option value="">載入中...</option>';
 
+
+
       const cached = LS.get('brands', 86400);
+
       if (cached) renderBrands(cached);
 
+
+
       try{
+
         const res = await fetch(BRAND_JSON, {cache:'force-cache'});
+
         const data = await res.json();
+
         // 容錯支持多種格式
+
         let list = [];
+
         if (Array.isArray(data)) {
+
           list = data.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))}));
+
         } else if (data && Array.isArray(data.brands)) {
+
           list = data.brands.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))}));
+
         } else if (data && typeof data === 'object') {
+
           list = Object.keys(data).map(k => ({id:k, name:k}));
+
         }
+
         if (!list.length) throw new Error('brands.json 格式不符');
 
+
+
         LS.set('brands', list);
+
         renderBrands(list);
 
+
+
         // 預抓第一個品牌車款，加速體感
+
         const first = list[0]?.id;
+
         if (first) fetchModels(first, {silent:true});
+
       }catch(e){
+
         console.warn('load brands error', e);
+
         if (!cached){
+
           brandEl.innerHTML = '<option value="">品牌載入失敗</option>';
+
           brandEl.disabled = true;
+
         }
+
       }
+
     }
+
+
 
     brandEl.addEventListener('change', () => {
+
       const id = brandEl.value;
+
       if (!id){
+
         modelEl.disabled = true;
+
         modelEl.innerHTML = '<option value="">請先選擇廠牌</option>';
+
         return;
+
       }
+
       fetchModels(id);
+
     });
+
+
 
     async function fetchModels(brandId, {silent=false} = {}){
+
       const CK = 'models:' + brandId;
+
       const cached = LS.get(CK, 21600);
+
       if (cached) renderModels(cached);
 
+
+
       if (!silent){
+
         modelEl.disabled = true;
+
         modelEl.innerHTML = '<option value="">載入中...</option>';
+
       }
+
+
 
       try{
+
         const res = await fetch(MODEL_JSON, {cache:'force-cache'});
+
         const data = await res.json();
 
+
+
         let list = [];
+
         if (Array.isArray(data)) {
+
           // 扁平陣列：[{id, brand_id, name}]
+
           list = data.filter(x => String(x.brand_id??x.brandId??x.BrandId) === String(brandId))
+
                      .map(x => ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))}));
+
         } else if (data && typeof data === 'object') {
+
           // map 結構：{ "TOYOTA":[{id,name}或"Altis"] , "1":[...] }
+
           const byKey = data[String(brandId)] || data[brandEl.options[brandEl.selectedIndex].text] || null;
+
           if (Array.isArray(byKey)) {
+
             list = byKey.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))}));
+
           }
+
         }
+
         if (!list.length) {
+
           modelEl.disabled = true;
+
           modelEl.innerHTML = '<option value="">此廠牌尚無車款</option>';
+
           return;
+
         }
+
+
 
         LS.set(CK, list);
+
         renderModels(list);
 
+
+
       }catch(e){
+
         console.warn('load models error', e);
+
         if (!cached){
+
           modelEl.disabled = true;
+
           modelEl.innerHTML = '<option value="">車款載入失敗</option>';
+
         }
+
       }
+
     }
+
+
 
     function renderBrands(list){
+
       brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
+
       list.forEach(b => brandEl.appendChild(new Option(String(b.name), String(b.id))));
+
       brandEl.disabled = false;
+
     }
+
     function renderModels(list){
+
       modelEl.innerHTML = '<option value="">請選擇車款</option>';
+
       list.forEach(m => modelEl.appendChild(new Option(String(m.name), String(m.id))));
+
       modelEl.disabled = false;
+
     }
+
+
 
     /* ===== 時段（Apps Script） ===== */
+
     async function fetchSlots(dateStr) {
+
       slotEl.disabled = true;
+
       slotEl.innerHTML = `<option value="">載入中...</option>`;
+
       try {
+
         const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
+
         const res = await fetch(url, { method: 'GET', mode: 'cors' });
+
         const json = await res.json();
+
         if (!json.success) throw new Error(json.message || '無法載入時段');
+
         const slots = json.data || {};
+
         const keys = Object.keys(slots).sort();
 
+
+
         slotEl.innerHTML = '';
+
         if (!keys.length){
+
           slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
+
           slotEl.disabled = true;
+
           return;
+
         }
+
         slotEl.appendChild(new Option('請選擇時段',''));
+
         keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
+
         slotEl.disabled = false;
+
       } catch (err) {
+
         slotEl.innerHTML = `<option value="">無法載入時段</option>`;
+
         slotEl.disabled = true;
+
       }
+
     }
+
+
 
     /* ===== 送出（x-www-form-urlencoded，避免 CORS 預檢） ===== */
+
     form.addEventListener('submit', async (e) => {
+
       e.preventDefault();
 
+
+
       const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
+
       for (const id of requiredIds) {
-        const el = document.getElementById(id);
-        if (!el || !el.value) { showModal('請填寫所有必填欄位。','error'); return; }
+
+        const el = (id==='slot') ? slotEl : document.getElementById(id);
+
+        if (!el || !el.value) { toast('請填寫所有必填欄位。','error'); return; }
+
       }
 
-      submitBtn.disabled = true; submitBtn.textContent = '提交中...'; showModal('','hide');
+
+
+      submitBtn.disabled = true; submitBtn.textContent = '提交中...'; toast('', 'hide');
+
+
 
       try {
+
         const params = new URLSearchParams();
+
         params.set('action','reserve');
+
         params.set('item',  document.getElementById('item').value);
+
         params.set('date',  dateEl.value);
+
         params.set('time',  slotEl.value);
+
         params.set('name',  document.getElementById('name').value);
+
         params.set('phone', document.getElementById('phone').value);
+
         params.set('email', document.getElementById('email').value);
+
         params.set('memo',  document.getElementById('memo').value || '');
+
         params.set('brand', brandEl.value);
+
         params.set('model', modelEl.value);
 
+
+
         const res  = await fetch(APPS_SCRIPT_URL, {
+
           method:'POST',
+
           headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=utf-8' },
+
           body: params.toString(),
+
           mode:'cors',
+
         });
 
+
+
         const ct = res.headers.get('content-type') || '';
+
         const data = ct.includes('application/json') ? await res.json()
+
                      : { success:false, message:'伺服器未回 JSON（請確認 Web App 權限/部署）' };
 
+
+
         if (data.success) {
-          showModal(data.message || '預約成功！','success'); // ✅ 這裡呼叫新的函式
+
+          toast(data.message || '預約成功！','success');
+
           form.reset();
+
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
+
           modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
+
           initBrands();
+
         } else {
+
           throw new Error(data.message || '預約失敗');
+
         }
+
       } catch (err) {
-        showModal(err.message || '連線失敗，請稍後再試。','error'); // ✅ 這裡呼叫新的函式
+
+        toast(err.message || '連線失敗，請稍後再試。','error');
+
       } finally {
+
         submitBtn.disabled = false; submitBtn.textContent = '立即預約';
+
       }
+
     });
 
-    // ✅ 新增：彈跳視窗控制函式
-    function showModal(msg, type){
-      if (type === 'hide'){
-        modalEl.classList.remove('show');
-        return;
-      }
 
-      modalMessageEl.textContent = msg || '';
-      modalContentEl.className = 'modal-content'; // 重設 class
-      if (type === 'success'){
-        modalContentEl.classList.add('success');
-        modalIconEl.textContent = '🎉';
-      } else if (type === 'error'){
-        modalContentEl.classList.add('error');
-        modalIconEl.textContent = '🚫';
-      }
-      modalEl.classList.add('show');
+
+    function toast(msg, type){
+
+      if (type === 'hide'){ statusEl.style.display='none'; return; }
+
+      statusEl.textContent = msg || '';
+
+      statusEl.className = '';
+
+      if (type === 'success') statusEl.classList.add('success');
+
+      if (type === 'error')   statusEl.classList.add('error');
+
+      statusEl.style.display = msg ? 'block' : 'none';
+
     }
 
-    // ✅ 新增：彈跳視窗關閉事件
-    modalCloseBtn.addEventListener('click', () => {
-      showModal('','hide');
-    });
-    modalEl.addEventListener('click', (e) => {
-      if (e.target.id === 'modal') showModal('','hide');
-    });
 
 
     // 避免 iOS 雙擊放大
+
     let lastTouch = 0;
+
     document.addEventListener('touchend', (e)=>{
+
       const now = Date.now();
+
       if (now - lastTouch <= 300) e.preventDefault();
+
       lastTouch = now;
+
     }, {passive:false});
+
   </script>
+
 </body>
+
 </html>
