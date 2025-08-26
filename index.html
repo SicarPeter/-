@@ -70,42 +70,38 @@
     }
     button.control:disabled{opacity:.6; cursor:not-allowed}
 
-    /* ✅ 新增的 Toast 彈出視窗樣式，使用您的配色 */
-    #toast-container {
+    /* ✅ 調整：將 #status 變為固定底部，並增加動畫 */
+    #status{
+      /* 您的原始樣式 */
+      margin-top:4px; font-weight:700; text-align:center;
+      /* 新增的彈出視窗樣式 */
       position: fixed;
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 1000;
-      max-width: 90%;
       padding: 12px 24px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      font-weight: 700;
       font-size: 16px;
-      text-align: center;
-      pointer-events: none;
+      white-space: nowrap; /* 避免文字換行 */
+      /* 動畫效果 */
       visibility: hidden;
       opacity: 0;
-      transition: bottom 0.5s ease, opacity 0.5s ease;
+      transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+      z-index: 9999;
     }
-    #toast-container.show {
+    #status.success{
+      display:block; color:var(--success);
+      background-color: var(--card); /* 讓背景看起來更融入 */
+    }
+    #status.error{
+      display:block; color:var(--danger);
+      background-color: var(--card); /* 讓背景看起來更融入 */
+    }
+    /* ✅ 新增：顯示時的動畫效果 */
+    #status.show {
       visibility: visible;
       opacity: 1;
-      bottom: 24px;
-    }
-    #toast-container.success {
-      background-color: var(--success);
-      color: #1f1f3f;
-    }
-    #toast-container.error {
-      background-color: var(--danger);
-      color: var(--text);
-    }
-
-    /* 移除原有的 #status 樣式，避免衝突 */
-    #status {
-      display: none !important;
     }
   </style>
 </head>
@@ -176,10 +172,6 @@
       <div id="status"></div>
      
     </form>
-  </div>
-
-    <div id="toast-container">
-    <div id="toast-message"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
@@ -390,38 +382,15 @@
       }
     });
 
-    /* ✅ 覆寫舊的 toast 函式，用於顯示彈出視窗 */
-    function toast(msg, type) {
-      const toastContainer = document.getElementById('toast-container');
-      const toastMessage = document.getElementById('toast-message');
-      if (!toastContainer || !toastMessage) {
-        // 若 toast 元素不存在，回退到舊的 #status 顯示方式
-        const statusEl = document.getElementById('status');
-        if (statusEl) {
-          if (type === 'hide') { statusEl.style.display = 'none'; return; }
-          statusEl.textContent = msg || '';
-          statusEl.className = '';
-          if (type === 'success') statusEl.classList.add('success');
-          if (type === 'error') statusEl.classList.add('error');
-          statusEl.style.display = msg ? 'block' : 'none';
-        }
-        return;
-      }
-      if (type === 'hide' || !msg) {
-        toastContainer.classList.remove('show');
-        toastContainer.className = '';
-        return;
-      }
-      toastMessage.textContent = msg;
-      toastContainer.className = '';
-      toastContainer.classList.add(type, 'show');
-      clearTimeout(toast.timer);
-      toast.timer = setTimeout(() => {
-        toastContainer.classList.remove('show');
-        toastContainer.className = '';
-      }, 3000);
+    function toast(msg, type){
+      if (type === 'hide'){ statusEl.style.display='none'; return; }
+      statusEl.textContent = msg || '';
+      statusEl.className = '';
+      if (type === 'success') statusEl.classList.add('success');
+      if (type === 'error')   statusEl.classList.add('error');
+      statusEl.style.display = msg ? 'block' : 'none';
     }
-    
+
     // 避免 iOS 雙擊放大
     let lastTouch = 0;
     document.addEventListener('touchend', (e)=>{
