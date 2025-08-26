@@ -114,7 +114,7 @@
       width: 100%;
     }
 
-    /* ===== 新增：聲明事項相關樣式 ===== */
+    /* ===== 聲明事項相關樣式 ===== */
     .form-group-agree {
       display: flex;
       align-items: center;
@@ -158,13 +158,26 @@
       padding-right: 10px; /* 避免滾動條蓋到文字 */
     }
     #declaration-content ol {
-      padding-left: 20px;
+      padding-left: 35px;
       margin: 0;
       line-height: 1.6;
       color: var(--muted);
     }
     #declaration-content li {
       margin-bottom: 12px;
+    }
+    
+    /* ✅ 新增：醒目提醒文字樣式 */
+    .reminder-box {
+      background-color: rgba(217, 241, 7, 0.1);
+      border: 1px solid var(--accent);
+      border-left-width: 4px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text);
+      margin-top: 4px;
+      line-height: 1.6;
     }
   </style>
 </head>
@@ -212,6 +225,14 @@
           </select>
         </div>
       </div>
+      
+      <!-- 年份 -->
+      <div class="form-group">
+        <label for="year">年份</label>
+        <select id="year" name="year" class="control" required>
+          <option value="">請選擇年份</option>
+        </select>
+      </div>
 
       <!-- 基本資料 -->
       <div class="row">
@@ -233,17 +254,17 @@
       <div class="form-group">
         <label for="memo">備註（可輸入 LINE ID 或其他需求）</label>
         <textarea id="memo" name="memo" class="control" rows="3" placeholder="選填"></textarea>
-        <!-- ✅ 新增：提醒文字 -->
-        <div class="help">檢測前請將車輛外觀清洗、內部物品移除 ; 檢測車輛同時會拍照 , 作為上架販售使用(檢測時間 1~1.5h)</div>
+        <!-- ✅ 修改：使用新的 class 來醒目提示 -->
+        <div class="reminder-box">檢測前請將車輛外觀清洗、內部物品移除 ; 檢測車輛同時會拍照 , 作為上架販售使用(檢測時間 1~1.5h)</div>
       </div>
 
-      <!-- ✅ 新增：同意聲明事項 -->
+      <!-- 同意聲明事項 -->
       <div class="form-group-agree">
         <input type="checkbox" id="agree" name="agree" required>
         <label for="agree">我已閱讀並同意<a href="javascript:void(0);" id="open-declaration">檢測聲明事項</a></label>
       </div>
 
-      <!-- ✅ 修改：按鈕預設為 disabled -->
+      <!-- 按鈕預設為 disabled -->
       <button id="submit" type="submit" class="control" disabled>立即預約</button>
     </form>
   </div>
@@ -257,7 +278,7 @@
     </div>
   </div>
 
-  <!-- ✅ 新增：聲明事項 Modal -->
+  <!-- 聲明事項 Modal -->
   <div id="declaration-modal" class="modal-overlay">
     <div class="modal-content declaration">
       <h2 id="declaration-title">檢測聲明事項</h2>
@@ -298,8 +319,9 @@
     const slotEl = document.getElementById('slot');
     const brandEl = document.getElementById('brand');
     const modelEl = document.getElementById('model');
+    const yearEl = document.getElementById('year');
     const submitBtn = document.getElementById('submit');
-    const agreeCheckbox = document.getElementById('agree'); // ✅ 新增
+    const agreeCheckbox = document.getElementById('agree');
 
     // 結果 Modal
     const modal = document.getElementById('modal');
@@ -307,7 +329,7 @@
     const modalMessage = document.getElementById('modal-message');
     const modalCloseBtn = document.getElementById('modal-close');
 
-    // ✅ 新增：聲明事項 Modal
+    // 聲明事項 Modal
     const openDeclarationLink = document.getElementById('open-declaration');
     const declarationModal = document.getElementById('declaration-modal');
     const declarationCloseBtn = document.getElementById('declaration-close');
@@ -361,7 +383,7 @@
       if (e.target === modal) hideModal();
     });
 
-    /* ===== 新增：Declaration Modal Logic ===== */
+    /* ===== Declaration Modal Logic ===== */
     function showDeclarationModal() {
       declarationModal.classList.add('show');
     }
@@ -391,6 +413,17 @@
       },
       set(k, v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})) }
     };
+    
+    /* ===== 初始化：年份 ===== */
+    function initYear() {
+      const startYear = 2010;
+      const endYear = 2026;
+      yearEl.innerHTML = '<option value="">請選擇年份</option>';
+      for (let i = endYear; i >= startYear; i--) {
+        yearEl.appendChild(new Option(i, i));
+      }
+    }
+    initYear();
 
     /* ===== 初始化：品牌 ===== */
     initBrands();
@@ -518,7 +551,7 @@
       }
     }
 
-    /* ===== 新增：啟用/禁用送出按鈕 ===== */
+    /* ===== 啟用/禁用送出按鈕 ===== */
     agreeCheckbox.addEventListener('change', () => {
       submitBtn.disabled = !agreeCheckbox.checked;
     });
@@ -528,13 +561,12 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // ✅ 修改：增加同意條款的檢查
       if (!agreeCheckbox.checked) {
         showModal('請先閱讀並同意檢測聲明事項。', 'error');
         return;
       }
-
-      const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
+      
+      const requiredIds = ['item','datepicker','slot','brand','model','year','name','phone','email'];
       for (const id of requiredIds) {
         const el = document.getElementById(id);
         if (!el || !el.value) {
@@ -557,6 +589,7 @@
         params.set('memo',  document.getElementById('memo').value || '');
         params.set('brand', brandEl.value);
         params.set('model', modelEl.value);
+        params.set('year',  yearEl.value);
 
         const res  = await fetch(APPS_SCRIPT_URL, {
           method:'POST',
@@ -572,8 +605,8 @@
         if (data.success) {
           showModal(data.message || '我們已收到您的預約，稍後將以 Email 確認。','success');
           form.reset();
-          agreeCheckbox.checked = false; // ✅ 新增：重設 checkbox
-          submitBtn.disabled = true;      // ✅ 新增：禁用按鈕
+          agreeCheckbox.checked = false;
+          submitBtn.disabled = true;
           picker.clearSelection();
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
@@ -584,7 +617,6 @@
       } catch (err) {
         showModal(err.message || '連線失敗，請稍後再試。','error');
       } finally {
-        // ✅ 修改：只有在失敗時才恢復按鈕狀態，成功時保持禁用
         if (!agreeCheckbox.checked) {
            submitBtn.textContent = '立即預約';
         }
