@@ -16,72 +16,103 @@
     }
     html,body{height:100%}
     html{-webkit-text-size-adjust:100%}
- body{
-  font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
-  background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
-  /* 原本：min-height:100svh; padding:16px;  改成下面這段 */
-  min-height:100svh;
-  padding:
-    calc(16px + env(safe-area-inset-top))
-    16px
-    calc(16px + env(safe-area-inset-bottom))
-    16px;               /* iOS Safari 瀏海安全區 */
-}
-
-/* 某些舊瀏覽器不支援 env()，再保底一次 */
-@supports not (padding: max(0px)) {
-  body{ padding-top: 24px; padding-bottom: 24px; }
-}
-
-/* ✅ 新增：手機改為頂對齊，避免內容被置中推到視窗外 */
-@media (max-width:760px){
-  body{ align-items:flex-start; }
-  .container{ margin-top: 8px; }
-}
-
+    body{
+      font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
+      background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
+      min-height:100svh;
+      padding:
+        calc(16px + env(safe-area-inset-top))
+        16px
+        calc(16px + env(safe-area-inset-bottom))
+        16px;
+    }
+    @supports not (padding: max(0px)) {
+      body{ padding-top: 24px; padding-bottom: 24px; }
+    }
+    @media (max-width:760px){
+      body{ align-items:flex-start; }
+      .container{ margin-top: 8px; }
+    }
     .container{
       width:100%; max-width:720px; background:var(--card); border-radius:14px; padding:24px;
       box-shadow:0 10px 30px rgba(0,0,0,.35);
     }
     h1{margin:0; font-size:clamp(22px,4.2vw,32px); color:var(--accent); text-align:center; font-weight:800;}
     .sub{margin:6px 0 18px; text-align:center; color:var(--muted); font-size:14px}
-
     .grid{display:grid; gap:16px}
     .row{
       display:grid; grid-template-columns:1fr 1fr; gap:16px;
-      align-items:start; /* 頂端對齊，避免右側時段因左側 help 文下沉 */
+      align-items:start;
     }
     @media (max-width:760px){ .row{ grid-template-columns:1fr; } }
-
     .form-group{display:flex; flex-direction:column; gap:8px}
     label{font-weight:700; font-size:14px}
-
-    /* 統一所有欄位高度；使用 padding 垂直置中，避免 line-height 造成 iOS 偏移 */
     .control{
       font:inherit; font-size:16px;
       height:var(--ctrl-h); padding:12px 14px; line-height:normal;
       width:100%; border-radius:10px; border:1px solid var(--border);
       background:var(--input); color:var(--text); box-sizing:border-box;
     }
-    /* select 用原生箭頭，最穩定 */
     select.control{ background-image:none; padding-right:14px; }
-    /* iOS 的 select 垂直置中（避免上下偏）*/
     @supports (-webkit-touch-callout:none){
       select.control{ padding-top:12px; padding-bottom:12px; }
     }
-
     textarea.control{ height:auto; min-height:96px; line-height:1.5 }
     .help{color:var(--muted); font-size:12px}
-
     button.control{
       background:var(--accent); color:#101020; border:none; font-weight:800; cursor:pointer;
       height:var(--ctrl-h);
     }
     button.control:disabled{opacity:.6; cursor:not-allowed}
 
-    #status{display:none; margin-top:4px; font-weight:700; text-align:center}
-    #status.success{display:block; color:var(--success)}
-    #status.error{display:block; color:var(--danger)}
+    /* ===== Modal Styles (新增) ===== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .modal-overlay.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal-content {
+      background: var(--card);
+      padding: 24px;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+    .modal-overlay.show .modal-content {
+      transform: scale(1);
+    }
+    #modal-title {
+      margin: 0 0 12px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    #modal-title.success { color: var(--success); }
+    #modal-title.error { color: var(--danger); }
+    #modal-message {
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+    #modal-close {
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -102,9 +133,9 @@
       <div class="row">
         <div class="form-group">
           <label for="datepicker">日期</label>
-          <!-- ✅ 新增 placeholder 與 readonly -->
           <input id="datepicker" name="date" type="text" class="control" inputmode="none" autocomplete="off" placeholder="請先選擇日期" readonly required>
-          <div class="help">可約 2 個月內</div>
+          <!-- ✅ 修改：提示文字 -->
+          <div class="help">可約 2 個月內，週一公休</div>
         </div>
         <div class="form-group">
           <label for="slot">時段</label>
@@ -153,9 +184,17 @@
       </div>
 
       <button id="submit" type="submit" class="control">立即預約</button>
-      <div id="status"></div>
-     
+      <!-- 🗑️ 移除：原本的 status div -->
     </form>
+  </div>
+
+  <!-- ✅ 新增：Modal HTML 結構 -->
+  <div id="modal" class="modal-overlay">
+    <div class="modal-content">
+      <h2 id="modal-title"></h2>
+      <p id="modal-message"></p>
+      <button id="modal-close" class="control">關閉</button>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
@@ -171,8 +210,13 @@
     const slotEl = document.getElementById('slot');
     const brandEl = document.getElementById('brand');
     const modelEl = document.getElementById('model');
-    const statusEl = document.getElementById('status');
+    // 🗑️ 移除 statusEl
     const submitBtn = document.getElementById('submit');
+    // ✅ 新增：Modal DOM 元素
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalMessage = document.getElementById('modal-message');
+    const modalCloseBtn = document.getElementById('modal-close');
 
     /* ===== Date Picker ===== */
     const today = new Date();
@@ -186,11 +230,45 @@
       maxDate: max,
       autoApply: true,
       mobileFriendly: true,
+      // ✅ 新增：禁用週一 (0=週日, 1=週一, ...)
+      lockDaysFilter: (date) => {
+        const day = date.getDay();
+        return day === 1;
+      },
     });
     picker.on('selected', (date) => {
       const d = date ? date.format('YYYY-MM-DD') : '';
       if (d) fetchSlots(d);
     });
+
+    /* ===== Modal Logic (新增) ===== */
+    function showModal(message, type) {
+      modalTitle.textContent = '';
+      modalTitle.className = '';
+      modalMessage.textContent = message || '';
+
+      if (type === 'success') {
+        modalTitle.textContent = '預約成功！';
+        modalTitle.classList.add('success');
+      }
+      if (type === 'error') {
+        modalTitle.textContent = '操作失敗';
+        modalTitle.classList.add('error');
+      }
+      modal.classList.add('show');
+    }
+
+    function hideModal() {
+      modal.classList.remove('show');
+    }
+
+    modalCloseBtn.addEventListener('click', hideModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        hideModal();
+      }
+    });
+
 
     /* ===== Local cache（brands：24h；models：每品牌 6h） ===== */
     const LS = {
@@ -217,7 +295,6 @@
       try{
         const res = await fetch(BRAND_JSON, {cache:'force-cache'});
         const data = await res.json();
-        // 容錯支持多種格式
         let list = [];
         if (Array.isArray(data)) {
           list = data.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))}));
@@ -231,7 +308,6 @@
         LS.set('brands', list);
         renderBrands(list);
 
-        // 預抓第一個品牌車款，加速體感
         const first = list[0]?.id;
         if (first) fetchModels(first, {silent:true});
       }catch(e){
@@ -269,11 +345,9 @@
 
         let list = [];
         if (Array.isArray(data)) {
-          // 扁平陣列：[{id, brand_id, name}]
           list = data.filter(x => String(x.brand_id??x.brandId??x.BrandId) === String(brandId))
                      .map(x => ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))}));
         } else if (data && typeof data === 'object') {
-          // map 結構：{ "TOYOTA":[{id,name}或"Altis"] , "1":[...] }
           const byKey = data[String(brandId)] || data[brandEl.options[brandEl.selectedIndex].text] || null;
           if (Array.isArray(byKey)) {
             list = byKey.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))}));
@@ -341,11 +415,15 @@
 
       const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
       for (const id of requiredIds) {
-        const el = (id==='slot') ? slotEl : document.getElementById(id);
-        if (!el || !el.value) { toast('請填寫所有必填欄位。','error'); return; }
+        const el = document.getElementById(id); // 簡化判斷
+        if (!el || !el.value) {
+          // ✅ 修改：呼叫 modal
+          showModal('請填寫所有必填欄位。','error');
+          return;
+        }
       }
 
-      submitBtn.disabled = true; submitBtn.textContent = '提交中...'; toast('', 'hide');
+      submitBtn.disabled = true; submitBtn.textContent = '提交中...';
 
       try {
         const params = new URLSearchParams();
@@ -369,32 +447,28 @@
 
         const ct = res.headers.get('content-type') || '';
         const data = ct.includes('application/json') ? await res.json()
-                     : { success:false, message:'伺服器未回 JSON（請確認 Web App 權限/部署）' };
+                      : { success:false, message:'伺服器未回 JSON（請確認 Web App 權限/部署）' };
 
         if (data.success) {
-          toast(data.message || '預約成功！','success');
+          // ✅ 修改：呼叫 modal
+          showModal(data.message || '我們已收到您的預約，稍後將以 Email 確認。','success');
           form.reset();
+          picker.clearSelection(); // 成功後清除日期選擇
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
-          initBrands();
+          brandEl.value = ''; // 清除廠牌選擇
         } else {
           throw new Error(data.message || '預約失敗');
         }
       } catch (err) {
-        toast(err.message || '連線失敗，請稍後再試。','error');
+        // ✅ 修改：呼叫 modal
+        showModal(err.message || '連線失敗，請稍後再試。','error');
       } finally {
         submitBtn.disabled = false; submitBtn.textContent = '立即預約';
       }
     });
 
-    function toast(msg, type){
-      if (type === 'hide'){ statusEl.style.display='none'; return; }
-      statusEl.textContent = msg || '';
-      statusEl.className = '';
-      if (type === 'success') statusEl.classList.add('success');
-      if (type === 'error')   statusEl.classList.add('error');
-      statusEl.style.display = msg ? 'block' : 'none';
-    }
+    // 🗑️ 移除：舊的 toast function
 
     // 避免 iOS 雙擊放大
     let lastTouch = 0;
