@@ -65,7 +65,7 @@
     }
     button.control:disabled{opacity:.6; cursor:not-allowed}
 
-    /* ===== Modal Styles (新增) ===== */
+    /* ===== Modal Styles ===== */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -113,6 +113,59 @@
     #modal-close {
       width: 100%;
     }
+
+    /* ===== 新增：聲明事項相關樣式 ===== */
+    .form-group-agree {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px; /* 與上方間距 */
+    }
+    .form-group-agree label {
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: normal;
+      cursor: pointer;
+    }
+    .form-group-agree input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+    .form-group-agree a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .form-group-agree a:hover {
+      text-decoration: underline;
+    }
+    .modal-content.declaration {
+      max-width: 600px; /* 讓聲明事項彈窗寬一點 */
+      text-align: left;
+    }
+    #declaration-title {
+      text-align: center;
+      margin: 0 0 16px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    #declaration-content {
+      max-height: 60vh; /* 限制高度，超過會出現滾動條 */
+      overflow-y: auto;
+      margin-bottom: 20px;
+      padding-right: 10px; /* 避免滾動條蓋到文字 */
+    }
+    #declaration-content ol {
+      padding-left: 20px;
+      margin: 0;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    #declaration-content li {
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
@@ -134,7 +187,6 @@
         <div class="form-group">
           <label for="datepicker">日期</label>
           <input id="datepicker" name="date" type="text" class="control" inputmode="none" autocomplete="off" placeholder="請先選擇日期" readonly required>
-          <!-- ✅ 修改：提示文字 -->
           <div class="help">可約 2 個月內，週一公休</div>
         </div>
         <div class="form-group">
@@ -181,14 +233,22 @@
       <div class="form-group">
         <label for="memo">備註（可輸入 LINE ID 或其他需求）</label>
         <textarea id="memo" name="memo" class="control" rows="3" placeholder="選填"></textarea>
+        <!-- ✅ 新增：提醒文字 -->
+        <div class="help">檢測前請將車輛外觀清洗、內部物品移除 ; 檢測車輛同時會拍照 , 作為上架販售使用(檢測時間 1~1.5h)</div>
       </div>
 
-      <button id="submit" type="submit" class="control">立即預約</button>
-      <!-- 🗑️ 移除：原本的 status div -->
+      <!-- ✅ 新增：同意聲明事項 -->
+      <div class="form-group-agree">
+        <input type="checkbox" id="agree" name="agree" required>
+        <label for="agree">我已閱讀並同意<a href="javascript:void(0);" id="open-declaration">檢測聲明事項</a></label>
+      </div>
+
+      <!-- ✅ 修改：按鈕預設為 disabled -->
+      <button id="submit" type="submit" class="control" disabled>立即預約</button>
     </form>
   </div>
 
-  <!-- ✅ 新增：Modal HTML 結構 -->
+  <!-- 結果 Modal -->
   <div id="modal" class="modal-overlay">
     <div class="modal-content">
       <h2 id="modal-title"></h2>
@@ -196,6 +256,34 @@
       <button id="modal-close" class="control">關閉</button>
     </div>
   </div>
+
+  <!-- ✅ 新增：聲明事項 Modal -->
+  <div id="declaration-modal" class="modal-overlay">
+    <div class="modal-content declaration">
+      <h2 id="declaration-title">檢測聲明事項</h2>
+      <div id="declaration-content">
+        <ol>
+            <li>因受檢測方式、設備之限制，故無法檢查引擎內部運轉狀況，包含內鏈、吃機油等內部之零件或現象。</li>
+            <li>車輛檢測皆採目視檢查，變速箱、加力箱、屬於封閉式零件，無法檢視內部磨損程度。</li>
+            <li>底盤零件因檢測無法舉升，底盤零件除避震器外，無法檢查耗損程度。</li>
+            <li>48V輔助電瓶或電動車之電池健康度不在檢測範圍內。</li>
+            <li>碳纖維或塑膠鈑件及製品不在檢測範圍內。</li>
+            <li>車體外觀如有包膜則無法檢測外觀鈑件有無刮凹痕現象。</li>
+            <li>非舉升檢查所能發現之結構損傷將不在檢測範圍內。</li>
+            <li>檢測時需視情況拆飾板及門邊膠條檢查，因物品自然老化造成之損壞均不予以賠償。</li>
+            <li>檢視敞篷車型視情況檢查開關功能是否異常，因物品自然老化造成損壞不予以賠償。</li>
+            <li>天窗檢查時需作動測試，因電器類自然老化造成損壞均不予以賠償。</li>
+            <li>業界目前尚無技術檢測車輛里程之正確性，檢測報告僅登錄儀表板燈下顯示之里程，不代表車輛正確之里程。</li>
+            <li>車輛檢查皆以目視評估，並無拆卸引擎、變速箱、及車輛零組件「車輛檢測單」以標車酷車輛檢測師陳述檢查結果。</li>
+            <li>本檢測報告僅提供車況予買賣雙方參考，不代表車輛售價能完整反映車況。</li>
+            <li>本檢測報告僅對車輛檢測當時車況進行評估，不代表無異狀之部分在日後不會有故障或不良之情況。</li>
+            <li>本檢測報告僅供買賣雙方參考，不作為法律訟訟之文件。</li>
+        </ol>
+      </div>
+      <button id="declaration-close" class="control">我明白了</button>
+    </div>
+  </div>
+
 
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
@@ -210,13 +298,20 @@
     const slotEl = document.getElementById('slot');
     const brandEl = document.getElementById('brand');
     const modelEl = document.getElementById('model');
-    // 🗑️ 移除 statusEl
     const submitBtn = document.getElementById('submit');
-    // ✅ 新增：Modal DOM 元素
+    const agreeCheckbox = document.getElementById('agree'); // ✅ 新增
+
+    // 結果 Modal
     const modal = document.getElementById('modal');
     const modalTitle = document.getElementById('modal-title');
     const modalMessage = document.getElementById('modal-message');
     const modalCloseBtn = document.getElementById('modal-close');
+
+    // ✅ 新增：聲明事項 Modal
+    const openDeclarationLink = document.getElementById('open-declaration');
+    const declarationModal = document.getElementById('declaration-modal');
+    const declarationCloseBtn = document.getElementById('declaration-close');
+
 
     /* ===== Date Picker ===== */
     const today = new Date();
@@ -230,10 +325,9 @@
       maxDate: max,
       autoApply: true,
       mobileFriendly: true,
-      // ✅ 新增：禁用週一 (0=週日, 1=週一, ...)
       lockDaysFilter: (date) => {
         const day = date.getDay();
-        return day === 1;
+        return day === 1; // 禁用週一
       },
     });
     picker.on('selected', (date) => {
@@ -241,7 +335,7 @@
       if (d) fetchSlots(d);
     });
 
-    /* ===== Modal Logic (新增) ===== */
+    /* ===== Modal Logic ===== */
     function showModal(message, type) {
       modalTitle.textContent = '';
       modalTitle.className = '';
@@ -264,13 +358,28 @@
 
     modalCloseBtn.addEventListener('click', hideModal);
     modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        hideModal();
-      }
+      if (e.target === modal) hideModal();
+    });
+
+    /* ===== 新增：Declaration Modal Logic ===== */
+    function showDeclarationModal() {
+      declarationModal.classList.add('show');
+    }
+    function hideDeclarationModal() {
+      declarationModal.classList.remove('show');
+    }
+
+    openDeclarationLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showDeclarationModal();
+    });
+    declarationCloseBtn.addEventListener('click', hideDeclarationModal);
+    declarationModal.addEventListener('click', (e) => {
+      if (e.target === declarationModal) hideDeclarationModal();
     });
 
 
-    /* ===== Local cache（brands：24h；models：每品牌 6h） ===== */
+    /* ===== Local cache ===== */
     const LS = {
       get(k, sec){
         try{
@@ -409,15 +518,26 @@
       }
     }
 
-    /* ===== 送出（x-www-form-urlencoded，避免 CORS 預檢） ===== */
+    /* ===== 新增：啟用/禁用送出按鈕 ===== */
+    agreeCheckbox.addEventListener('change', () => {
+      submitBtn.disabled = !agreeCheckbox.checked;
+    });
+
+
+    /* ===== 送出 ===== */
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
+      // ✅ 修改：增加同意條款的檢查
+      if (!agreeCheckbox.checked) {
+        showModal('請先閱讀並同意檢測聲明事項。', 'error');
+        return;
+      }
+
       const requiredIds = ['item','datepicker','slot','brand','model','name','phone','email'];
       for (const id of requiredIds) {
-        const el = document.getElementById(id); // 簡化判斷
+        const el = document.getElementById(id);
         if (!el || !el.value) {
-          // ✅ 修改：呼叫 modal
           showModal('請填寫所有必填欄位。','error');
           return;
         }
@@ -450,25 +570,26 @@
                       : { success:false, message:'伺服器未回 JSON（請確認 Web App 權限/部署）' };
 
         if (data.success) {
-          // ✅ 修改：呼叫 modal
           showModal(data.message || '我們已收到您的預約，稍後將以 Email 確認。','success');
           form.reset();
-          picker.clearSelection(); // 成功後清除日期選擇
+          agreeCheckbox.checked = false; // ✅ 新增：重設 checkbox
+          submitBtn.disabled = true;      // ✅ 新增：禁用按鈕
+          picker.clearSelection();
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
-          brandEl.value = ''; // 清除廠牌選擇
+          brandEl.value = '';
         } else {
           throw new Error(data.message || '預約失敗');
         }
       } catch (err) {
-        // ✅ 修改：呼叫 modal
         showModal(err.message || '連線失敗，請稍後再試。','error');
       } finally {
-        submitBtn.disabled = false; submitBtn.textContent = '立即預約';
+        // ✅ 修改：只有在失敗時才恢復按鈕狀態，成功時保持禁用
+        if (!agreeCheckbox.checked) {
+           submitBtn.textContent = '立即預約';
+        }
       }
     });
-
-    // 🗑️ 移除：舊的 toast function
 
     // 避免 iOS 雙擊放大
     let lastTouch = 0;
