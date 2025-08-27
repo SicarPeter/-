@@ -127,6 +127,11 @@
       font-weight: normal;
       cursor: pointer;
     }
+    /* ✅ 修改：禁用時的樣式 */
+    .form-group-agree input[type="checkbox"]:disabled + label {
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
     .form-group-agree input[type="checkbox"] {
       width: 18px;
       height: 18px;
@@ -167,7 +172,7 @@
       margin-bottom: 12px;
     }
     
-    /* ✅ 新增：醒目提醒文字樣式 */
+    /* 醒目提醒文字樣式 */
     .reminder-box {
       background-color: rgba(217, 241, 7, 0.1);
       border: 1px solid var(--accent);
@@ -254,13 +259,13 @@
       <div class="form-group">
         <label for="memo">備註（可輸入 LINE ID 或其他需求）</label>
         <textarea id="memo" name="memo" class="control" rows="3" placeholder="選填"></textarea>
-        <!-- ✅ 修改：使用新的 class 來醒目提示 -->
         <div class="reminder-box">檢測前請將車輛外觀清洗、內部物品移除 ; 檢測車輛同時會拍照 , 作為上架販售使用(檢測時間 1~1.5h)</div>
       </div>
 
       <!-- 同意聲明事項 -->
       <div class="form-group-agree">
-        <input type="checkbox" id="agree" name="agree" required>
+        <!-- ✅ 修改：預設為 disabled -->
+        <input type="checkbox" id="agree" name="agree" required disabled>
         <label for="agree">我已閱讀並同意<a href="javascript:void(0);" id="open-declaration">檢測聲明事項</a></label>
       </div>
 
@@ -333,6 +338,9 @@
     const openDeclarationLink = document.getElementById('open-declaration');
     const declarationModal = document.getElementById('declaration-modal');
     const declarationCloseBtn = document.getElementById('declaration-close');
+    
+    // ✅ 新增：用來追蹤使用者是否已閱讀聲明
+    let hasReadDeclaration = false;
 
 
     /* ===== Date Picker ===== */
@@ -395,9 +403,23 @@
       e.preventDefault();
       showDeclarationModal();
     });
-    declarationCloseBtn.addEventListener('click', hideDeclarationModal);
+    
+    // ✅ 修改：關閉聲明視窗時，啟用 checkbox
+    declarationCloseBtn.addEventListener('click', () => {
+        hideDeclarationModal();
+        if (!hasReadDeclaration) {
+            hasReadDeclaration = true;
+            agreeCheckbox.disabled = false;
+        }
+    });
     declarationModal.addEventListener('click', (e) => {
-      if (e.target === declarationModal) hideDeclarationModal();
+      if (e.target === declarationModal) {
+          hideDeclarationModal();
+          if (!hasReadDeclaration) {
+              hasReadDeclaration = true;
+              agreeCheckbox.disabled = false;
+          }
+      }
     });
 
 
@@ -605,7 +627,11 @@
         if (data.success) {
           showModal(data.message || '我們已收到您的預約，稍後將以 Email 確認。','success');
           form.reset();
+          // ✅ 修改：重設 checkbox 狀態並禁用
           agreeCheckbox.checked = false;
+          agreeCheckbox.disabled = true;
+          hasReadDeclaration = false;
+          
           submitBtn.disabled = true;
           picker.clearSelection();
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
@@ -617,9 +643,11 @@
       } catch (err) {
         showModal(err.message || '連線失敗，請稍後再試。','error');
       } finally {
-        if (!agreeCheckbox.checked) {
-           submitBtn.textContent = '立即預約';
+        // 只有在失敗時才恢復按鈕狀態
+        if (agreeCheckbox.checked) {
+          submitBtn.disabled = false;
         }
+        submitBtn.textContent = '立即預約';
       }
     });
 
