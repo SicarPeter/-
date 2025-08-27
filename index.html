@@ -557,7 +557,7 @@
     });
 
 
-    /* ===== 送出 ===== */
+ /* ===== 送出 ===== */
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -569,6 +569,7 @@ form.addEventListener('submit', async (e) => {
   const requiredIds = ['item', 'datepicker', 'slot', 'brand', 'model', 'year', 'name', 'phone', 'email'];
   for (const id of requiredIds) {
     const el = document.getElementById(id);
+    // 檢查元素是否存在，且其值不為空字串或 null
     if (!el || !el.value) {
       showModal('請填寫所有必填欄位。', 'error');
       return;
@@ -579,7 +580,6 @@ form.addEventListener('submit', async (e) => {
   submitBtn.textContent = '提交中...';
 
   try {
-    // 建立一個 JavaScript 物件
     const formData = {
       action: 'reserve',
       item: document.getElementById('item').value,
@@ -593,22 +593,25 @@ form.addEventListener('submit', async (e) => {
       model: modelEl.value,
       year: yearEl.value,
     };
-
-    // 透過 fetch 以 POST 方法發送 JSON 格式的資料
+    
+    // ✅ 修正：使用更穩定的 fetch 語法，明確設定 headers 和 body
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(formData),
-      mode: 'cors',
+      mode: 'cors'
     });
 
-    const ct = res.headers.get('content-type') || '';
-    const data = ct.includes('application/json') ? await res.json() : {
-      success: false,
-      message: '伺服器未回 JSON（請確認 Web App 權限/部署）'
-    };
+    // 檢查伺服器回傳的狀態碼，如果不是 200-299 範圍，則拋出錯誤
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Server response was not OK:', res.status, errorText);
+      throw new Error(`伺服器回應錯誤：${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
 
     if (data.success) {
       showModal(data.message || '我們已收到您的預約，稍後將以 Email 確認。', 'success');
@@ -625,6 +628,7 @@ form.addEventListener('submit', async (e) => {
       throw new Error(data.message || '預約失敗');
     }
   } catch (err) {
+    console.error('Submission failed:', err);
     showModal(err.message || '連線失敗，請稍後再試。', 'error');
   } finally {
     if (!agreeCheckbox.checked) {
