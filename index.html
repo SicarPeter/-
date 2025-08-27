@@ -558,70 +558,80 @@
 
 
     /* ===== 送出 ===== */
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-      if (!agreeCheckbox.checked) {
-        showModal('請先閱讀並同意檢測聲明事項。', 'error');
-        return;
-      }
-      
-      const requiredIds = ['item','datepicker','slot','brand','model','year','name','phone','email'];
-      for (const id of requiredIds) {
-        const el = document.getElementById(id);
-        if (!el || !el.value) {
-          showModal('請填寫所有必填欄位。','error');
-          return;
-        }
-      }
+  if (!agreeCheckbox.checked) {
+    showModal('請先閱讀並同意檢測聲明事項。', 'error');
+    return;
+  }
+  
+  const requiredIds = ['item', 'datepicker', 'slot', 'brand', 'model', 'year', 'name', 'phone', 'email'];
+  for (const id of requiredIds) {
+    const el = document.getElementById(id);
+    if (!el || !el.value) {
+      showModal('請填寫所有必填欄位。', 'error');
+      return;
+    }
+  }
 
-      submitBtn.disabled = true; submitBtn.textContent = '提交中...';
+  submitBtn.disabled = true;
+  submitBtn.textContent = '提交中...';
 
-      try {
-        const params = new URLSearchParams();
-        params.set('action','reserve');
-        params.set('item',  document.getElementById('item').value);
-        params.set('date',  dateEl.value);
-        params.set('time',  slotEl.value);
-        params.set('name',  document.getElementById('name').value);
-        params.set('phone', document.getElementById('phone').value);
-        params.set('email', document.getElementById('email').value);
-        params.set('memo',  document.getElementById('memo').value || '');
-        params.set('brand', brandEl.value);
-        params.set('model', modelEl.value);
-        params.set('year',  yearEl.value);
+  try {
+    // 建立一個 JavaScript 物件
+    const formData = {
+      action: 'reserve',
+      item: document.getElementById('item').value,
+      date: dateEl.value,
+      time: slotEl.value,
+      name: document.getElementById('name').value,
+      phone: document.getElementById('phone').value,
+      email: document.getElementById('email').value,
+      memo: document.getElementById('memo').value || '',
+      brand: brandEl.value,
+      model: modelEl.value,
+      year: yearEl.value,
+    };
 
-        const res  = await fetch(APPS_SCRIPT_URL, {
-          method:'POST',
-          headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=utf-8' },
-          body: params.toString(),
-          mode:'cors',
-        });
-
-        const ct = res.headers.get('content-type') || '';
-        const data = ct.includes('application/json') ? await res.json()
-                      : { success:false, message:'伺服器未回 JSON（請確認 Web App 權限/部署）' };
-
-        if (data.success) {
-          showModal(data.message || '我們已收到您的預約，稍後將以 Email 確認。','success');
-          form.reset();
-          agreeCheckbox.checked = false;
-          submitBtn.disabled = true;
-          picker.clearSelection();
-          slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
-          modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
-          brandEl.value = '';
-        } else {
-          throw new Error(data.message || '預約失敗');
-        }
-      } catch (err) {
-        showModal(err.message || '連線失敗，請稍後再試。','error');
-      } finally {
-        if (!agreeCheckbox.checked) {
-           submitBtn.textContent = '立即預約';
-        }
-      }
+    // 透過 fetch 以 POST 方法發送 JSON 格式的資料
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(formData),
+      mode: 'cors',
     });
+
+    const ct = res.headers.get('content-type') || '';
+    const data = ct.includes('application/json') ? await res.json() : {
+      success: false,
+      message: '伺服器未回 JSON（請確認 Web App 權限/部署）'
+    };
+
+    if (data.success) {
+      showModal(data.message || '我們已收到您的預約，稍後將以 Email 確認。', 'success');
+      form.reset();
+      agreeCheckbox.checked = false;
+      submitBtn.disabled = true;
+      picker.clearSelection();
+      slotEl.innerHTML = `<option value="">請先選擇日期</option>`;
+      slotEl.disabled = true;
+      modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`;
+      modelEl.disabled = true;
+      brandEl.value = '';
+    } else {
+      throw new Error(data.message || '預約失敗');
+    }
+  } catch (err) {
+    showModal(err.message || '連線失敗，請稍後再試。', 'error');
+  } finally {
+    if (!agreeCheckbox.checked) {
+      submitBtn.textContent = '立即預約';
+    }
+  }
+});
 
     // 避免 iOS 雙擊放大
     let lastTouch = 0;
