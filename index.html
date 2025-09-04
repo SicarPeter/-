@@ -342,6 +342,19 @@
     // ✅ 新增：用來追蹤使用者是否已閱讀聲明
     let hasReadDeclaration = false;
 
+    /* ===== 聲明事項 Modal ===== */
+openDeclarationLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  declarationModal.classList.add('show');
+});
+
+declarationCloseBtn.addEventListener('click', () => {
+  declarationModal.classList.remove('show');
+  // ✅ 修改：閱讀完畢後，啟用同意的核取方塊
+  agreeCheckbox.disabled = false;
+  hasReadDeclaration = true;
+});
+
 
     /* ===== Date Picker ===== */
 const today = new Date();
