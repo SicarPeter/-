@@ -344,83 +344,50 @@
 
 
     /* ===== Date Picker ===== */
-    const today = new Date();
-    const max = new Date(); max.setMonth(max.getMonth() + 2);
-    const picker = new Litepicker({
-      element: dateEl,
-      singleMode: true,
-      lang: 'zh-TW',
-      format: 'YYYY-MM-DD',
-    // minDate: today, // ✅ 註解掉或刪除這行
-      maxDate: max,
-      autoApply: true,
-      mobileFriendly: true,
-      lockDaysFilter: (date) => {
-        const day = date.getDay();
-        return day === 1; // 禁用週一
-      },
-    });
-    picker.on('selected', (date) => {
-      const d = date ? date.format('YYYY-MM-DD') : '';
-      if (d) fetchSlots(d);
-    });
+const today = new Date();
+const max = new Date(); max.setMonth(max.getMonth() + 2);
+let closedDays = [];
 
-    /* ===== Modal Logic ===== */
-    function showModal(message, type) {
-      modalTitle.textContent = '';
-      modalTitle.className = '';
-      modalMessage.textContent = message || '';
-
-      if (type === 'success') {
-        modalTitle.textContent = '預約成功！';
-        modalTitle.classList.add('success');
-      }
-      if (type === 'error') {
-        modalTitle.textContent = '操作失敗';
-        modalTitle.classList.add('error');
-      }
-      modal.classList.add('show');
+// ✅ 新增：在載入頁面時獲取被關閉的日期
+async function fetchClosedDays() {
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=closed-days`);
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data)) {
+      closedDays = json.data;
     }
+  } catch (err) {
+    console.error('Failed to fetch closed days:', err);
+  }
+  
+  initPicker();
+}
 
-    function hideModal() {
-      modal.classList.remove('show');
-    }
+function initPicker() {
+  const picker = new Litepicker({
+    element: dateEl,
+    singleMode: true,
+    lang: 'zh-TW',
+    format: 'YYYY-MM-DD',
+    minDate: today,
+    maxDate: max,
+    autoApply: true,
+    mobileFriendly: true,
+    lockDaysFilter: (date) => {
+      const day = date.getDay();
+      const dateStr = date.format('YYYY-MM-DD');
+      // 檢查是否為週一或在關閉日期清單中
+      return day === 1 || closedDays.includes(dateStr);
+    },
+  });
+  picker.on('selected', (date) => {
+    const d = date ? date.format('YYYY-MM-DD') : '';
+    if (d) fetchSlots(d);
+  });
+}
 
-    modalCloseBtn.addEventListener('click', hideModal);
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) hideModal();
-    });
-
-    /* ===== Declaration Modal Logic ===== */
-    function showDeclarationModal() {
-      declarationModal.classList.add('show');
-    }
-    function hideDeclarationModal() {
-      declarationModal.classList.remove('show');
-    }
-
-    openDeclarationLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      showDeclarationModal();
-    });
-    
-    // ✅ 修改：關閉聲明視窗時，啟用 checkbox
-    declarationCloseBtn.addEventListener('click', () => {
-        hideDeclarationModal();
-        if (!hasReadDeclaration) {
-            hasReadDeclaration = true;
-            agreeCheckbox.disabled = false;
-        }
-    });
-    declarationModal.addEventListener('click', (e) => {
-      if (e.target === declarationModal) {
-          hideDeclarationModal();
-          if (!hasReadDeclaration) {
-              hasReadDeclaration = true;
-              agreeCheckbox.disabled = false;
-          }
-      }
-    });
+// ✅ 啟動程序
+fetchClosedDays();
 
 
     /* ===== Local cache ===== */
