@@ -541,7 +541,7 @@ async function fetchSlots(dateStr) {
         const slotMinutes = hour * 60 + minute;
         // 考量預約所需時間，增加一個緩衝
         // 假設從現在開始 30 分鐘內都無法預約
-        return slotMinutes > currentMinutes + 30;
+        return slotMinutes > currentMinutes + 10;
       });
     }
 
