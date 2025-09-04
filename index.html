@@ -547,31 +547,52 @@
     }
 
     /* ===== 時段（Apps Script） ===== */
-    async function fetchSlots(dateStr) {
-      slotEl.disabled = true;
-      slotEl.innerHTML = `<option value="">載入中...</option>`;
-      try {
-        const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
-        const res = await fetch(url, { method: 'GET', mode: 'cors' });
-        const json = await res.json();
-        if (!json.success) throw new Error(json.message || '無法載入時段');
-        const slots = json.data || {};
-        const keys = Object.keys(slots).sort();
+async function fetchSlots(dateStr) {
+  slotEl.disabled = true;
+  slotEl.innerHTML = `<option value="">載入中...</option>`;
+  
+  const today = new Date();
+  const selectedDate = new Date(dateStr);
+  const isToday = selectedDate.toDateString() === today.toDateString();
 
-        slotEl.innerHTML = '';
-        if (!keys.length){
-          slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
-          slotEl.disabled = true;
-          return;
-        }
-        slotEl.appendChild(new Option('請選擇時段',''));
-        keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
-        slotEl.disabled = false;
-      } catch (err) {
-        slotEl.innerHTML = `<option value="">無法載入時段</option>`;
-        slotEl.disabled = true;
-      }
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
+    const res = await fetch(url, { method: 'GET', mode: 'cors' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || '無法載入時段');
+    
+    const slots = json.data || {};
+    let keys = Object.keys(slots).sort();
+
+    // ✅ 新增邏輯：如果是今天，只保留當前時間之後的時段
+    if (isToday) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      
+      keys = keys.filter(k => {
+        const [hour, minute] = k.split(':').map(Number);
+        const slotMinutes = hour * 60 + minute;
+        // 考量預約所需時間，增加一個緩衝
+        // 假設從現在開始 30 分鐘內都無法預約
+        return slotMinutes > currentMinutes + 30;
+      });
     }
+
+    slotEl.innerHTML = '';
+    if (!keys.length){
+      slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
+      slotEl.disabled = true;
+      return;
+    }
+    
+    slotEl.appendChild(new Option('請選擇時段',''));
+    keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
+    slotEl.disabled = false;
+  } catch (err) {
+    slotEl.innerHTML = `<option value="">無法載入時段</option>`;
+    slotEl.disabled = true;
+  }
+}
 
     /* ===== 啟用/禁用送出按鈕 ===== */
     agreeCheckbox.addEventListener('change', () => {
