@@ -1,15 +1,19 @@
 <!doctype html>
 <html lang="zh-Hant-TW">
 <head>
-  <meta charset="utf-8" />
-  <title>標車酷｜車輛檢測預約｜中古車217項專業檢測</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="dark light" />
-  <meta name="description" content="賣車就找標車酷！我們提供 217 項中古車專業檢測，由鑑定師上架前檢測車況，排除重大事故與泡水風險，幫助買家安心、讓你賣車更順利。" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" rel="stylesheet" />
-  <style>
+  <meta charset="utf-8" />
+  <title>標車酷｜車輛檢測預約｜中古車217項專業檢測</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="description" content="賣車就找標車酷！我們提供 217 項中古車專業檢測，由鑑定師上架前檢測車況，排除重大事故與泡水風險，幫助買家安心、讓你賣車更順利。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" rel="stylesheet" />
+  <style>
+    /* ✅ 新增：通用 box-sizing 規則，避免 padding 影響排版 */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
     :root{
       --bg:#191935; --card:#1f1f3f; --text:#f0f0f0; --muted:#9aa0b4;
       --accent:#D9F107; --input:#2a2a47; --border:#3f3f61; --danger:#ff8c8c; --success:#8cff8c;
@@ -19,7 +23,8 @@
     html{-webkit-text-size-adjust:100%}
     body{
       font-family:'Noto Sans TC',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol',sans-serif;
-      background:var(--bg); color:var(--text); margin:0; display:flex; align-items:center; justify-content:center;
+      background:var(--bg); color:var(--text); margin:0;
+      /* ✅ 修改：移除 flex，讓 container 自然撐滿寬度 */
       min-height:100svh;
       padding:
         calc(16px + env(safe-area-inset-top))
@@ -31,12 +36,15 @@
       body{ padding-top: 24px; padding-bottom: 24px; }
     }
     @media (max-width:760px){
-      body{ align-items:flex-start; }
+      /* ✅ 修改：移除 align-items:flex-start; */
       .container{ margin-top: 8px; }
     }
     .container{
       width:100%; max-width:720px; background:var(--card); border-radius:14px; padding:24px;
       box-shadow:0 10px 30px rgba(0,0,0,.35);
+      /* ✅ 新增：讓 container 在 body 中水平置中 */
+      margin-left: auto;
+      margin-right: auto;
     }
     h1{margin:0; font-size:clamp(22px,4.2vw,32px); color:var(--accent); text-align:center; font-weight:800;}
     .sub{margin:6px 0 18px; text-align:center; color:var(--muted); font-size:14px}
@@ -47,12 +55,18 @@
     }
     @media (max-width:760px){ .row{ grid-template-columns:1fr; } }
     .form-group{display:flex; flex-direction:column; gap:8px}
-    label{font-weight:700; font-size:14px}
     .control{
       font:inherit; font-size:16px;
       height:var(--ctrl-h); padding:12px 14px; line-height:normal;
       width:100%; border-radius:10px; border:1px solid var(--border);
-      background:var(--input); color:var(--text); box-sizing:border-box;
+      background:var(--input); color:var(--text);
+      /* ✅ 新增：轉場效果 */
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    /* ✅ 新增：欄位驗證失敗的樣式 */
+    .control.is-invalid {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 2px rgba(255, 140, 140, 0.3);
     }
     select.control{ background-image:none; padding-right:14px; }
     @supports (-webkit-touch-callout:none){
@@ -65,125 +79,60 @@
       height:var(--ctrl-h);
     }
     button.control:disabled{opacity:.6; cursor:not-allowed}
-
-    /* ===== Modal Styles ===== */
     .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      opacity: 0;
-      visibility: hidden;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6); display: flex; align-items: center;
+      justify-content: center; z-index: 1000; opacity: 0; visibility: hidden;
       transition: opacity 0.3s ease, visibility 0.3s ease;
     }
-    .modal-overlay.show {
-      opacity: 1;
-      visibility: visible;
-    }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
     .modal-content {
-      background: var(--card);
-      padding: 24px;
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      width: 90%;
-      max-width: 400px;
-      text-align: center;
-      transform: scale(0.9);
-      transition: transform 0.3s ease;
+      background: var(--card); padding: 24px; border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35); width: 90%; max-width: 400px;
+      text-align: center; transform: scale(0.9); transition: transform 0.3s ease;
     }
-    .modal-overlay.show .modal-content {
-      transform: scale(1);
-    }
+    .modal-overlay.show .modal-content { transform: scale(1); }
     #modal-title {
-      margin: 0 0 12px;
-      font-size: 20px;
-      font-weight: 700;
+      margin: 0 0 12px; font-size: 20px; font-weight: 700;
     }
     #modal-title.success { color: var(--success); }
     #modal-title.error { color: var(--danger); }
-    #modal-message {
-      margin: 0 0 20px;
-      color: var(--muted);
-    }
-    #modal-close {
-      width: 100%;
-    }
-
-    /* ===== 聲明事項相關樣式 ===== */
+    #modal-message { margin: 0 0 20px; color: var(--muted); }
+    #modal-close { width: 100%; }
     .form-group-agree {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 8px; /* 與上方間距 */
+      display: flex; align-items: center; gap: 10px; margin-top: 8px;
     }
     .form-group-agree label {
-      font-size: 14px;
-      color: var(--muted);
-      font-weight: normal;
-      cursor: pointer;
+      font-size: 14px; color: var(--muted); font-weight: normal; cursor: pointer;
     }
-    /* ✅ 修改：禁用時的樣式 */
     .form-group-agree input[type="checkbox"]:disabled + label {
-        cursor: not-allowed;
-        opacity: 0.7;
+      cursor: not-allowed; opacity: 0.7;
     }
     .form-group-agree input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      accent-color: var(--accent);
+      width: 18px; height: 18px; accent-color: var(--accent);
     }
     .form-group-agree a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
+      color: var(--accent); text-decoration: none; font-weight: 600;
     }
-    .form-group-agree a:hover {
-      text-decoration: underline;
-    }
+    .form-group-agree a:hover { text-decoration: underline; }
     .modal-content.declaration {
-      max-width: 600px; /* 讓聲明事項彈窗寬一點 */
-      text-align: left;
+      max-width: 600px; text-align: left;
     }
     #declaration-title {
-      text-align: center;
-      margin: 0 0 16px;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text);
+      text-align: center; margin: 0 0 16px; font-size: 20px;
+      font-weight: 700; color: var(--text);
     }
     #declaration-content {
-      max-height: 60vh; /* 限制高度，超過會出現滾動條 */
-      overflow-y: auto;
-      margin-bottom: 20px;
-      padding-right: 10px; /* 避免滾動條蓋到文字 */
+      max-height: 60vh; overflow-y: auto; margin-bottom: 20px; padding-right: 10px;
     }
     #declaration-content ol {
-      padding-left: 35px;
-      margin: 0;
-      line-height: 1.6;
-      color: var(--muted);
+      padding-left: 35px; margin: 0; line-height: 1.6; color: var(--muted);
     }
-    #declaration-content li {
-      margin-bottom: 12px;
-    }
-    
-    /* 醒目提醒文字樣式 */
+    #declaration-content li { margin-bottom: 12px; }
     .reminder-box {
-      background-color: rgba(217, 241, 7, 0.1);
-      border: 1px solid var(--accent);
-      border-left-width: 4px;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      color: var(--text);
-      margin-top: 4px;
-      line-height: 1.6;
+      background-color: rgba(217, 241, 7, 0.1); border: 1px solid var(--accent);
+      border-left-width: 4px; padding: 12px; border-radius: 8px;
+      font-size: 13px; color: var(--text); margin-top: 4px; line-height: 1.6;
     }
   </style>
 </head>
@@ -191,17 +140,13 @@
   <div class="container">
     <h1>標車酷預約系統</h1>
     <p class="sub">定點檢測 · 台北市中山區濱江街 326-1 號</p>
-
     <form id="form" class="grid" novalidate>
-      <!-- 項目 -->
       <div class="form-group">
         <label for="item">預約項目</label>
         <select id="item" name="item" class="control" required>
           <option value="車輛檢測">車輛檢測</option>
         </select>
       </div>
-
-      <!-- 日期 / 時段 -->
       <div class="row">
         <div class="form-group">
           <label for="datepicker">日期</label>
@@ -215,8 +160,6 @@
           </select>
         </div>
       </div>
-
-      <!-- 廠牌 / 車款 -->
       <div class="row">
         <div class="form-group">
           <label for="brand">廠牌</label>
@@ -231,16 +174,12 @@
           </select>
         </div>
       </div>
-      
-      <!-- 年份 -->
       <div class="form-group">
         <label for="year">年份</label>
         <select id="year" name="year" class="control" required>
           <option value="">請選擇年份</option>
         </select>
       </div>
-
-      <!-- 基本資料 -->
       <div class="row">
         <div class="form-group">
           <label for="name">姓名</label>
@@ -251,31 +190,23 @@
           <input id="phone" name="phone" type="tel" class="control" inputmode="numeric" pattern="^(09|\\+?8869)\\d{8}$" placeholder="09xxxxxxxx" required>
         </div>
       </div>
-
       <div class="form-group">
         <label for="email">電子郵件</label>
         <input id="email" name="email" type="email" class="control" placeholder="example@gmail.com" required>
       </div>
-
       <div class="form-group">
         <label for="memo">備註（可輸入 LINE ID 或其他需求）</label>
         <textarea id="memo" name="memo" class="control" rows="3" placeholder="選填"></textarea>
         <div class="reminder-box">檢測前請將車輛外觀清洗、內部物品移除 ; 檢測車輛同時會拍照 , 作為上架販售使用(檢測時間 1~1.5h)</div>
       </div>
-
-      <!-- 同意聲明事項 -->
       <div class="form-group-agree">
-        <!-- ✅ 修改：預設為 disabled -->
         <input type="checkbox" id="agree" name="agree" required disabled>
         <label for="agree">我已閱讀並同意<a href="javascript:void(0);" id="open-declaration">檢測聲明事項</a></label>
       </div>
-
-      <!-- 按鈕預設為 disabled -->
       <button id="submit" type="submit" class="control" disabled>立即預約</button>
     </form>
   </div>
 
-  <!-- 結果 Modal -->
   <div id="modal" class="modal-overlay">
     <div class="modal-content">
       <h2 id="modal-title"></h2>
@@ -284,7 +215,6 @@
     </div>
   </div>
 
-  <!-- 聲明事項 Modal -->
   <div id="declaration-modal" class="modal-overlay">
     <div class="modal-content declaration">
       <h2 id="declaration-title">檢測聲明事項</h2>
@@ -311,7 +241,6 @@
     </div>
   </div>
 
-
   <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
   <script>
     /* ===== Endpoints ===== */
@@ -328,99 +257,98 @@
     const yearEl = document.getElementById('year');
     const submitBtn = document.getElementById('submit');
     const agreeCheckbox = document.getElementById('agree');
-
-    // 結果 Modal
     const modal = document.getElementById('modal');
     const modalTitle = document.getElementById('modal-title');
     const modalMessage = document.getElementById('modal-message');
     const modalCloseBtn = document.getElementById('modal-close');
-
-    // 聲明事項 Modal
     const openDeclarationLink = document.getElementById('open-declaration');
     const declarationModal = document.getElementById('declaration-modal');
     const declarationCloseBtn = document.getElementById('declaration-close');
     
-    // ✅ 新增：用來追蹤使用者是否已閱讀聲明
     let hasReadDeclaration = false;
+    let picker; // ✅ 提升 picker 變數作用域
+
+    /* ===== Modal Logic ===== */
+    function showModal(message, type) {
+      modalTitle.textContent = '';
+      modalTitle.className = '';
+      modalMessage.textContent = message || '';
+      if (type === 'success') {
+        modalTitle.textContent = '預約成功！';
+        modalTitle.classList.add('success');
+      }
+      if (type === 'error') {
+        modalTitle.textContent = '操作失敗';
+        modalTitle.classList.add('error');
+      }
+      modal.classList.add('show');
+    }
+    function hideModal() { modal.classList.remove('show'); }
+    modalCloseBtn.addEventListener('click', hideModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
 
     /* ===== 聲明事項 Modal ===== */
-openDeclarationLink.addEventListener('click', (e) => {
-  e.preventDefault();
-  declarationModal.classList.add('show');
-});
-
-declarationCloseBtn.addEventListener('click', () => {
-  declarationModal.classList.remove('show');
-  // ✅ 修改：閱讀完畢後，啟用同意的核取方塊
-  agreeCheckbox.disabled = false;
-  hasReadDeclaration = true;
-});
-
+    openDeclarationLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      declarationModal.classList.add('show');
+    });
+    declarationCloseBtn.addEventListener('click', () => {
+      declarationModal.classList.remove('show');
+      agreeCheckbox.disabled = false;
+      hasReadDeclaration = true;
+    });
 
     /* ===== Date Picker ===== */
-const today = new Date();
-const max = new Date(); max.setMonth(max.getMonth() + 2);
-let closedDays = [];
+    const today = new Date();
+    const max = new Date(); max.setMonth(max.getMonth() + 2);
+    let closedDays = [];
 
-// ✅ 新增：在載入頁面時獲取被關閉的日期
-async function fetchClosedDays() {
-  try {
-    const res = await fetch(`${APPS_SCRIPT_URL}?action=closed-days`);
-    const json = await res.json();
-    if (json.success && Array.isArray(json.data)) {
-      closedDays = json.data;
+    async function fetchClosedDays() {
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=closed-days`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          closedDays = json.data;
+        }
+      } catch (err) {
+        console.error('Failed to fetch closed days:', err);
+      }
+      initPicker();
     }
-  } catch (err) {
-    console.error('Failed to fetch closed days:', err);
-  }
-  
-  initPicker();
-}
 
-function initPicker() {
-  const picker = new Litepicker({
-    element: dateEl,
-    singleMode: true,
-    lang: 'zh-TW',
-    format: 'YYYY-MM-DD',
-    // minDate: today, // ✅ 註解掉或刪除這行
-    maxDate: max,
-    autoApply: true,
-    mobileFriendly: true,
-    lockDaysFilter: (date) => {
-      const day = date.getDay();
-      const dateStr = date.format('YYYY-MM-DD');
-      // 檢查是否為週一或在關閉日期清單中
-      return day === 1 || closedDays.includes(dateStr);
-    },
-  });
-  picker.on('selected', (date) => {
-    const d = date ? date.format('YYYY-MM-DD') : '';
-    if (d) fetchSlots(d);
-  });
-}
-
-// ✅ 啟動程序
-fetchClosedDays();
-
+    function initPicker() {
+      picker = new Litepicker({ // ✅ 賦值給 picker
+        element: dateEl,
+        singleMode: true,
+        lang: 'zh-TW',
+        format: 'YYYY-MM-DD',
+        minDate: today, // ✅ 將 minDate 移回此處
+        maxDate: max,
+        autoApply: true,
+        mobileFriendly: true,
+        lockDaysFilter: (date) => {
+          const day = date.getDay();
+          const dateStr = date.format('YYYY-MM-DD');
+          return day === 1 || closedDays.includes(dateStr);
+        },
+      });
+      picker.on('selected', (date) => {
+        const d = date ? date.format('YYYY-MM-DD') : '';
+        if (d) fetchSlots(d);
+      });
+    }
+    fetchClosedDays();
 
     /* ===== Local cache ===== */
     const LS = {
-      get(k, sec){
-        try{
-          const v = JSON.parse(localStorage.getItem(k) || 'null');
-          if(!v) return null;
-          if(sec && (Date.now() - v.t)/1000 > sec) return null;
-          return v.v;
-        }catch{return null}
-      },
+      get(k, sec){ try{ const v = JSON.parse(localStorage.getItem(k) || 'null'); if(!v) return null; if(sec && (Date.now() - v.t)/1000 > sec) return null; return v.v; }catch{return null} },
       set(k, v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})) }
     };
     
     /* ===== 初始化：年份 ===== */
     function initYear() {
       const startYear = 2010;
-      const endYear = 2026;
+      const endYear = new Date().getFullYear() + 1; // 動態取得今年+1
       yearEl.innerHTML = '<option value="">請選擇年份</option>';
       for (let i = endYear; i >= startYear; i--) {
         yearEl.appendChild(new Option(i, i));
@@ -428,94 +356,56 @@ fetchClosedDays();
     }
     initYear();
 
-    /* ===== 初始化：品牌 ===== */
+    /* ===== 初始化：品牌 & 車款 ===== */
     initBrands();
     async function initBrands(){
-      brandEl.disabled = true;
-      brandEl.innerHTML = '<option value="">載入中...</option>';
-
+      brandEl.disabled = true; brandEl.innerHTML = '<option value="">載入中...</option>';
       const cached = LS.get('brands', 86400);
       if (cached) renderBrands(cached);
-
       try{
         const res = await fetch(BRAND_JSON, {cache:'force-cache'});
         const data = await res.json();
         let list = [];
-        if (Array.isArray(data)) {
-          list = data.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))}));
-        } else if (data && Array.isArray(data.brands)) {
-          list = data.brands.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))}));
-        } else if (data && typeof data === 'object') {
-          list = Object.keys(data).map(k => ({id:k, name:k}));
-        }
+        if (Array.isArray(data)) { list = data.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))})); }
+        else if (data && Array.isArray(data.brands)) { list = data.brands.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id??x.value??x.code??x))})); }
+        else if (data && typeof data === 'object') { list = Object.keys(data).map(k => ({id:k, name:k})); }
         if (!list.length) throw new Error('brands.json 格式不符');
-
         LS.set('brands', list);
         renderBrands(list);
-
         const first = list[0]?.id;
         if (first) fetchModels(first, {silent:true});
       }catch(e){
         console.warn('load brands error', e);
-        if (!cached){
-          brandEl.innerHTML = '<option value="">品牌載入失敗</option>';
-          brandEl.disabled = true;
-        }
+        if (!cached){ brandEl.innerHTML = '<option value="">品牌載入失敗</option>'; brandEl.disabled = true; }
       }
     }
-
     brandEl.addEventListener('change', () => {
       const id = brandEl.value;
-      if (!id){
-        modelEl.disabled = true;
-        modelEl.innerHTML = '<option value="">請先選擇廠牌</option>';
-        return;
-      }
+      if (!id){ modelEl.disabled = true; modelEl.innerHTML = '<option value="">請先選擇廠牌</option>'; return; }
       fetchModels(id);
     });
-
     async function fetchModels(brandId, {silent=false} = {}){
       const CK = 'models:' + brandId;
       const cached = LS.get(CK, 21600);
       if (cached) renderModels(cached);
-
-      if (!silent){
-        modelEl.disabled = true;
-        modelEl.innerHTML = '<option value="">載入中...</option>';
-      }
-
+      if (!silent){ modelEl.disabled = true; modelEl.innerHTML = '<option value="">載入中...</option>'; }
       try{
         const res = await fetch(MODEL_JSON, {cache:'force-cache'});
         const data = await res.json();
-
         let list = [];
-        if (Array.isArray(data)) {
-          list = data.filter(x => String(x.brand_id??x.brandId??x.BrandId) === String(brandId))
-                     .map(x => ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))}));
-        } else if (data && typeof data === 'object') {
+        if (Array.isArray(data)) { list = data.filter(x => String(x.brand_id??x.brandId??x.BrandId) === String(brandId)).map(x => ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))})); }
+        else if (data && typeof data === 'object') {
           const byKey = data[String(brandId)] || data[brandEl.options[brandEl.selectedIndex].text] || null;
-          if (Array.isArray(byKey)) {
-            list = byKey.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))}));
-          }
+          if (Array.isArray(byKey)) { list = byKey.map(x => typeof x === 'string' ? ({id:x, name:x}) : ({id:(x.id??x.value??x.code??x.name), name:(x.name??x.label??String(x.id))})); }
         }
-        if (!list.length) {
-          modelEl.disabled = true;
-          modelEl.innerHTML = '<option value="">此廠牌尚無車款</option>';
-          return;
-        }
-
+        if (!list.length) { modelEl.disabled = true; modelEl.innerHTML = '<option value="">此廠牌尚無車款</option>'; return; }
         LS.set(CK, list);
         renderModels(list);
-
       }catch(e){
         console.warn('load models error', e);
-        if (!cached){
-          modelEl.disabled = true;
-          modelEl.innerHTML = '<option value="">車款載入失敗</option>';
-        }
+        if (!cached){ modelEl.disabled = true; modelEl.innerHTML = '<option value="">車款載入失敗</option>'; }
       }
     }
-
     function renderBrands(list){
       brandEl.innerHTML = '<option value="">請選擇廠牌</option>';
       list.forEach(b => brandEl.appendChild(new Option(String(b.name), String(b.id))));
@@ -528,127 +418,107 @@ fetchClosedDays();
     }
 
     /* ===== 時段（Apps Script） ===== */
-async function fetchSlots(dateStr) {
-  slotEl.disabled = true;
-  slotEl.innerHTML = `<option value="">載入中...</option>`;
-  
-  const today = new Date();
-  const selectedDate = new Date(dateStr);
-  const isToday = selectedDate.toDateString() === today.toDateString();
-
-  try {
-    const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
-    const res = await fetch(url, { method: 'GET', mode: 'cors' });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message || '無法載入時段');
-    
-    const slots = json.data || {};
-    let keys = Object.keys(slots).sort();
-
-    // ✅ 新增邏輯：如果是今天，只保留當前時間之後的時段
-    if (isToday) {
-      const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      
-      keys = keys.filter(k => {
-        const [hour, minute] = k.split(':').map(Number);
-        const slotMinutes = hour * 60 + minute;
-        // 考量預約所需時間，增加一個緩衝
-        // 假設從現在開始 30 分鐘內都無法預約
-        return slotMinutes > currentMinutes + 10;
-      });
+    async function fetchSlots(dateStr) {
+      slotEl.disabled = true; slotEl.innerHTML = `<option value="">載入中...</option>`;
+      const today = new Date();
+      const selectedDate = new Date(dateStr);
+      const isToday = selectedDate.setHours(0,0,0,0) === today.setHours(0,0,0,0);
+      try {
+        const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
+        const res = await fetch(url, { method: 'GET', mode: 'cors' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || '無法載入時段');
+        const slots = json.data || {};
+        let keys = Object.keys(slots).sort();
+        if (isToday) {
+          const now = new Date();
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          keys = keys.filter(k => {
+            const [hour, minute] = k.split(':').map(Number);
+            return hour * 60 + minute > currentMinutes + 10;
+          });
+        }
+        slotEl.innerHTML = '';
+        if (!keys.length){ slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`; slotEl.disabled = true; return; }
+        slotEl.appendChild(new Option('請選擇時段',''));
+        keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
+        slotEl.disabled = false;
+      } catch (err) {
+        slotEl.innerHTML = `<option value="">無法載入時段</option>`; slotEl.disabled = true;
+      }
     }
-
-    slotEl.innerHTML = '';
-    if (!keys.length){
-      slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
-      slotEl.disabled = true;
-      return;
-    }
-    
-    slotEl.appendChild(new Option('請選擇時段',''));
-    keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
-    slotEl.disabled = false;
-  } catch (err) {
-    slotEl.innerHTML = `<option value="">無法載入時段</option>`;
-    slotEl.disabled = true;
-  }
-}
 
     /* ===== 啟用/禁用送出按鈕 ===== */
-    agreeCheckbox.addEventListener('change', () => {
-      submitBtn.disabled = !agreeCheckbox.checked;
-    });
+    agreeCheckbox.addEventListener('change', () => { submitBtn.disabled = !agreeCheckbox.checked; });
 
-
-    /* ===== 送出 ===== */
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      if (!agreeCheckbox.checked) {
-        showModal('請先閱讀並同意檢測聲明事項。', 'error');
-        return;
-      }
+    /* ===== 表單驗證 ===== */
+    const fieldNames = { item: '預約項目', datepicker: '日期', slot: '時段', brand: '廠牌', model: '車款', year: '年份', name: '姓名', phone: '手機號碼', email: '電子郵件' };
+    function validateForm() {
+      // 清除舊的錯誤提示
+      document.querySelectorAll('.control.is-invalid').forEach(el => el.classList.remove('is-invalid'));
       
       const requiredIds = ['item','datepicker','slot','brand','model','year','name','phone','email'];
       for (const id of requiredIds) {
         const el = document.getElementById(id);
         if (!el || !el.value) {
-          showModal('請填寫所有必填欄位。','error');
-          return;
+          return { id, message: `請選擇或填寫「${fieldNames[id]}」。` };
         }
+      }
+      if (!agreeCheckbox.checked) {
+        return { id: 'agree', message: '請先閱讀並同意檢測聲明事項。' };
+      }
+      return null;
+    }
+
+    /* ===== 送出 ===== */
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const validationError = validateForm();
+      if (validationError) {
+        showModal(validationError.message, 'error');
+        const errorEl = document.getElementById(validationError.id);
+        if (errorEl) {
+          errorEl.classList.add('is-invalid');
+          errorEl.focus({ preventScroll: true });
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
       }
 
       submitBtn.disabled = true; submitBtn.textContent = '預約中...';
 
       try {
-        const params = new URLSearchParams();
+        const params = new URLSearchParams(new FormData(form));
         params.set('action','reserve');
-        params.set('item',  document.getElementById('item').value);
-        params.set('date',  dateEl.value);
-        params.set('time',  slotEl.value);
-        params.set('name',  document.getElementById('name').value);
-        params.set('phone', document.getElementById('phone').value);
-        params.set('email', document.getElementById('email').value);
-        params.set('memo',  document.getElementById('memo').value || '');
-        params.set('brand', brandEl.value);
-        params.set('model', modelEl.value);
-        params.set('year',  yearEl.value);
 
         const res  = await fetch(APPS_SCRIPT_URL, {
           method:'POST',
-          headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=utf-8' },
-          body: params.toString(),
+          body: params,
           mode:'cors',
         });
 
         const ct = res.headers.get('content-type') || '';
-        const data = ct.includes('application/json') ? await res.json()
-                      : { success:false, message:'伺服器未回 JSON（請確認 Web App 權限/部署）' };
+        const data = ct.includes('application/json') ? await res.json() : { success:false, message:'伺服器未回 JSON' };
 
         if (data.success) {
           showModal(data.message || '我們已收到您的預約，稍後將以 Email 確認。','success');
           form.reset();
-          // ✅ 修改：重設 checkbox 狀態並禁用
+          if (picker) picker.clearSelection();
           agreeCheckbox.checked = false;
           agreeCheckbox.disabled = true;
           hasReadDeclaration = false;
-          
           submitBtn.disabled = true;
-          picker.clearSelection();
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
-          brandEl.value = '';
         } else {
           throw new Error(data.message || '預約失敗');
         }
       } catch (err) {
         showModal(err.message || '連線失敗，請稍後再試。','error');
+        // ✅ 修改：失敗時才恢復按鈕
+        submitBtn.disabled = !agreeCheckbox.checked;
       } finally {
-        // 只有在失敗時才恢復按鈕狀態
-        if (agreeCheckbox.checked) {
-          submitBtn.disabled = false;
-        }
         submitBtn.textContent = '立即預約';
       }
     });
@@ -663,3 +533,4 @@ async function fetchSlots(dateStr) {
   </script>
 </body>
 </html>
+
