@@ -331,7 +331,8 @@
         lockDaysFilter: (date) => {
           const day = date.getDay();
           const dateStr = date.format('YYYY-MM-DD');
-          return day === 1 || closedDays.includes(dateStr);
+          // ✅ 禁止週日 (0) & 週一 (1) & 後端回傳的關閉日
+      return day === 0 || day === 1 || closedDays.includes(dateStr);
         },
       });
       picker.on('selected', (date) => {
