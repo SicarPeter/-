@@ -366,27 +366,7 @@ const SLOTS_CACHE_TTL = 300; // 秒 (5分鐘)
     }
     initYear();
 
-/* ===== 初始化：時段快取 ===== */
-async function initSlotsCache() {
-  try {
-    const cached = LS.get(SLOTS_CACHE_KEY, SLOTS_CACHE_TTL);
-    if (cached) {
-      slotsCache = cached;
-      console.log('%c[slotsCache] 使用 localStorage 快取', 'color: #4caf50; font-weight: bold;');
-      return;
-    }
 
-    const res = await fetch(`${APPS_SCRIPT_URL}?action=slots-range&range=30`);
-    const json = await res.json();
-    if (json.success && json.data) {
-      slotsCache = json.data;
-      LS.set(SLOTS_CACHE_KEY, slotsCache);
-      console.log('%c[slotsCache] 已從後端更新 30 天時段', 'color: #2196f3; font-weight: bold;', slotsCache);
-    }
-  } catch (err) {
-    console.error('載入 slots-range 失敗', err);
-  }
-}
 
     /* ===== 初始化：品牌 & 車款 ===== */
     initBrands();
@@ -448,6 +428,15 @@ async function initSlotsCache() {
       list.forEach(m => modelEl.appendChild(new Option(String(m.name), String(m.id))));
       modelEl.disabled = false;
     }
+
+/* ===== 日期正規化 ===== */
+function normalizeDate(dateStr) {
+  const d = new Date(dateStr);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 /* ===== 初始化：時段快取 ===== */
 async function initSlotsCache() {
