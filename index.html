@@ -441,22 +441,23 @@ function normalizeDate(dateStr) {
 /* ===== 依日期載入時段 ===== */
 function fetchSlots(dateStr) {
   const normalizedDate = normalizeDate(dateStr);
-  const slots = slotsCache[normalizedDate] || [];
+  const slots = slotsCache[normalizedDate] || {};
 
-  console.log('[fetchSlots] 輸入日期:', dateStr, '正規化:', normalizedDate, 'slots:', slots); // 【修改處】新增 debug
+  console.log('[fetchSlots] 輸入日期:', dateStr, '正規化:', normalizedDate, 'slots:', slots);
 
-  if (!slots.length) {
+  const times = Object.entries(slots); // [[time, remaining], [time, remaining], ...]
+
+  if (!times.length) {
     slotEl.innerHTML = `<option value="">該日無可用時段</option>`;
     slotEl.disabled = true;
     return;
   }
 
   slotEl.innerHTML = '<option value="">請選擇時段</option>';
-  slots.forEach(s => {
-    const label = s.label || s.time || s.value; // 【修改處】label/fallback，避免空值
-    const value = s.value || s.time || s.label;
-    const opt = new Option(label, value);
-    opt.disabled = s.full === true; // 若後端有回傳 full=true，顯示但不可選
+  times.forEach(([time, remaining]) => {
+    const label = `${time} （剩餘 ${remaining} 位）`;
+    const opt = new Option(label, time);
+    opt.disabled = remaining <= 0;
     slotEl.appendChild(opt);
   });
   slotEl.disabled = false;
