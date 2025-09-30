@@ -270,6 +270,11 @@
     let hasReadDeclaration = false;
     let picker; // ✅ 提升 picker 變數作用域
 
+    /* ===== Slots 快取設定 ===== */
+let slotsCache = {};
+const SLOTS_CACHE_KEY = 'slotsCache';
+const SLOTS_CACHE_TTL = 300; // 秒 (5分鐘)
+
     /* ===== Modal Logic ===== */
     function showModal(message, type) {
       modalTitle.textContent = '';
@@ -341,6 +346,8 @@
       });
     }
     fetchClosedDays();
+    initSlotsCache(); // 頁面載入就先抓 30 天資料
+
 
     /* ===== Local cache ===== */
     const LS = {
@@ -358,6 +365,28 @@
       }
     }
     initYear();
+
+/* ===== 初始化：時段快取 ===== */
+async function initSlotsCache() {
+  try {
+    const cached = LS.get(SLOTS_CACHE_KEY, SLOTS_CACHE_TTL);
+    if (cached) {
+      slotsCache = cached;
+      console.log('%c[slotsCache] 使用 localStorage 快取', 'color: #4caf50; font-weight: bold;');
+      return;
+    }
+
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=slots-range&range=30`);
+    const json = await res.json();
+    if (json.success && json.data) {
+      slotsCache = json.data;
+      LS.set(SLOTS_CACHE_KEY, slotsCache);
+      console.log('%c[slotsCache] 已從後端更新 30 天時段', 'color: #2196f3; font-weight: bold;', slotsCache);
+    }
+  } catch (err) {
+    console.error('載入 slots-range 失敗', err);
+  }
+}
 
     /* ===== 初始化：品牌 & 車款 ===== */
     initBrands();
@@ -420,25 +449,19 @@
       modelEl.disabled = false;
     }
 
-   /* ===== 時段（Apps Script） ===== */
+  /* ===== 時段（使用快取） ===== */
 async function fetchSlots(dateStr) {
   slotEl.disabled = true;
   slotEl.innerHTML = `<option value="">載入中...</option>`;
 
-  const today = new Date();
-  const selectedDate = new Date(dateStr);
-  const isToday = selectedDate.setHours(0,0,0,0) === today.setHours(0,0,0,0);
-
   try {
-    const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
-    const res = await fetch(url, { method: 'GET', mode: 'cors' });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message || '無法載入時段');
-
-    const slots = json.data || {};
+    const slots = slotsCache[dateStr] || {};
     let keys = Object.keys(slots).sort();
 
-    // 🔹 過濾掉當天已經過去的時段
+    const today = new Date();
+    const selectedDate = new Date(dateStr);
+    const isToday = selectedDate.setHours(0,0,0,0) === today.setHours(0,0,0,0);
+
     if (isToday) {
       const now = new Date();
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -456,14 +479,13 @@ async function fetchSlots(dateStr) {
     }
 
     slotEl.appendChild(new Option('請選擇時段',''));
-
-    let allFull = true; // 🟢 必須先定義
+    let allFull = true;
     keys.forEach(k => {
       const opt = new Option(`${k}（剩餘 ${slots[k]} 位）`, k);
       if (slots[k] <= 0) {
-        opt.disabled = true; // 沒名額 → 灰掉
+        opt.disabled = true;
       } else {
-        allFull = false; // 有至少一個可用
+        allFull = false;
       }
       slotEl.appendChild(opt);
     });
