@@ -310,18 +310,19 @@ const SLOTS_CACHE_TTL = 300; // 秒 (5分鐘)
     const max = new Date(); max.setMonth(max.getMonth() + 2);
     let closedDays = [];
 
-    async function fetchClosedDays() {
-      try {
-        const res = await fetch(`${APPS_SCRIPT_URL}?action=closed-days`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          closedDays = json.data;
-        }
-      } catch (err) {
-        console.error('Failed to fetch closed days:', err);
-      }
-      initPicker();
+ async function fetchClosedDays() {
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=closed-days`);
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data)) {
+      closedDays = json.data;
     }
+  } catch (err) {
+    console.error('Failed to fetch closed days:', err);
+  }
+  initPicker();
+  initSlotsCache(); // ✅ 放這裡，確保 Picker 初始化後才載入時段快取
+}
 
     function initPicker() {
       picker = new Litepicker({ // ✅ 賦值給 picker
@@ -448,16 +449,31 @@ function normalizeDate(dateStr) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-/* ===== 依日期載入時段（已修正） ===== */
+/* ===== 依日期載入時段 ===== */
 function fetchSlots(dateStr) {
-  // const normalizedDate = normalizeDate(dateStr); // ❌ 移除這個可能造成問題的呼叫
-  const normalizedDate = dateStr; // ✅ 直接使用 Litepicker 回傳的 YYYY-MM-DD 格式
-  const slots = slotsCache[normalizedDate] || {};
+  const normalizedDate = dateStr; // 直接用 YYYY-MM-DD
+  const slots = slotsCache[normalizedDate] || {};
 
-  console.log('[fetchSlots] 輸入日期:', dateStr, '正規化:', normalizedDate, 'slots:', slots);
+  console.log('[fetchSlots] 輸入日期:', dateStr, 'slots:', slots);
 
-  const times = Object.entries(slots); // [[time, remaining], [time, remaining], ...]
-  // ... (後續程式碼不變)
+  slotEl.innerHTML = '';
+  let hasValid = false;
+
+  Object.entries(slots).forEach(([time, remaining]) => {
+    if (remaining > 0) {
+      const opt = new Option(`${time}（剩餘 ${remaining} 位）`, time);
+      slotEl.appendChild(opt);
+      hasValid = true;
+    }
+  });
+
+  if (!hasValid) {
+    slotEl.innerHTML = '<option value="">該日無可用時段</option>';
+    slotEl.disabled = true;
+  } else {
+    slotEl.disabled = false;
+  }
+}
 
 /* ===== 初始化：時段快取 ===== */
 async function initSlotsCache() {
