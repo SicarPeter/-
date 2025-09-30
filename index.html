@@ -444,7 +444,18 @@
         slotEl.innerHTML = '';
         if (!keys.length){ slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`; slotEl.disabled = true; return; }
         slotEl.appendChild(new Option('請選擇時段',''));
-        keys.forEach(k => slotEl.appendChild(new Option(`${k}（剩餘 ${slots[k]} 位）`, k)));
+  keys.forEach(k => {
+   const opt = new Option(`${k}（剩餘 ${slots[k]} 位）`, k);
+   if (slots[k] <= 0) {
+    opt.disabled = true; // 沒名額 → 灰掉不能選
+  }
+  slotEl.appendChild(opt);
+});
+if (allFull) {
+      slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
+      slotEl.disabled = true;
+      return;
+    }
         slotEl.disabled = false;
       } catch (err) {
         slotEl.innerHTML = `<option value="">無法載入時段</option>`; slotEl.disabled = true;
