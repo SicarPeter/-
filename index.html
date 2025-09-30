@@ -438,6 +438,26 @@ function normalizeDate(dateStr) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/* ===== 依日期載入時段 ===== */
+function fetchSlots(dateStr) {
+  const normalizedDate = normalizeDate(dateStr);
+  const slots = slotsCache[normalizedDate] || [];
+
+  if (!slots.length) {
+    slotEl.innerHTML = `<option value="">該日無可用時段</option>`;
+    slotEl.disabled = true;
+    return;
+  }
+
+  slotEl.innerHTML = '<option value="">請選擇時段</option>';
+  slots.forEach(s => {
+    const opt = new Option(s.label || s.time, s.value || s.time);
+    opt.disabled = s.full === true; // 若後端有回傳 full=true，顯示但不可選
+    slotEl.appendChild(opt);
+  });
+  slotEl.disabled = false;
+}
+
 /* ===== 初始化：時段快取 ===== */
 async function initSlotsCache() {
   try {
