@@ -451,6 +451,13 @@ async function initSlotsCache() {
 
   /* ===== 時段（使用快取） ===== */
 async function fetchSlots(dateStr) {
+  // 🔑 確保日期格式統一為 yyyy-MM-dd
+  const d = new Date(dateStr);
+  dateStr = d.toISOString().slice(0, 10);
+
+  console.log('🔍 選到的日期:', dateStr);
+  console.log('🔍 slotsCache keys:', Object.keys(slotsCache));
+
   slotEl.disabled = true;
   slotEl.innerHTML = `<option value="">載入中...</option>`;
 
