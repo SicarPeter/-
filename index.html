@@ -449,69 +449,32 @@ async function initSlotsCache() {
       modelEl.disabled = false;
     }
 
-/* ===== 時段（使用快取） ===== */
-function normalizeDate(dateStr) {
-  const d = new Date(dateStr);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-async function fetchSlots(dateStr) {
-  dateStr = normalizeDate(dateStr); // 🔑 強制轉成 yyyy-MM-dd
-  console.log('[fetchSlots] 正規化日期:', dateStr, 'slots=', slotsCache[dateStr]);
-
-  slotEl.disabled = true;
-  slotEl.innerHTML = `<option value="">載入中...</option>`;
-
+/* ===== 初始化：時段快取 ===== */
+async function initSlotsCache() {
   try {
-    const slots = slotsCache[dateStr] || {};
-    let keys = Object.keys(slots).sort();
+    const cached = LS.get(SLOTS_CACHE_KEY, SLOTS_CACHE_TTL);
+    if (cached) {
+      slotsCache = cached;
+      console.log('%c[slotsCache] 使用 localStorage 快取', 'color: #4caf50; font-weight: bold;');
+      return;
+    }
 
-    const today = new Date();
-    const selectedDate = new Date(dateStr);
-    const isToday = selectedDate.setHours(0,0,0,0) === today.setHours(0,0,0,0);
-
-    if (isToday) {
-      const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      keys = keys.filter(k => {
-        const [hour, minute] = k.split(':').map(Number);
-        return hour * 60 + minute > currentMinutes + 10;
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=slots-range&range=30`);
+    const json = await res.json();
+    if (json.success && json.data) {
+      // 🔑 正規化所有 key
+      const normalized = {};
+      Object.keys(json.data).forEach(d => {
+        const nd = normalizeDate(d);
+        normalized[nd] = json.data[d];
       });
+      slotsCache = normalized;
+
+      LS.set(SLOTS_CACHE_KEY, slotsCache);
+      console.log('%c[slotsCache] 已從後端更新 30 天時段', 'color: #2196f3; font-weight: bold;', slotsCache);
     }
-
-    slotEl.innerHTML = '';
-    if (!keys.length) {
-      slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
-      slotEl.disabled = true;
-      return;
-    }
-
-    slotEl.appendChild(new Option('請選擇時段',''));
-    let allFull = true;
-    keys.forEach(k => {
-      const opt = new Option(`${k}（剩餘 ${slots[k]} 位）`, k);
-      if (slots[k] <= 0) {
-        opt.disabled = true;
-      } else {
-        allFull = false;
-      }
-      slotEl.appendChild(opt);
-    });
-
-    if (allFull) {
-      slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
-      slotEl.disabled = true;
-      return;
-    }
-
-    slotEl.disabled = false;
   } catch (err) {
-    console.error('fetchSlots error:', err);
-    slotEl.innerHTML = `<option value="">無法載入時段</option>`;
-    slotEl.disabled = true;
+    console.error('載入 slots-range 失敗', err);
   }
 }
 
