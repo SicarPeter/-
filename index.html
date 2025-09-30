@@ -449,14 +449,18 @@ async function initSlotsCache() {
       modelEl.disabled = false;
     }
 
-  /* ===== 時段（使用快取） ===== */
-async function fetchSlots(dateStr) {
-  // 🔑 確保日期格式統一為 yyyy-MM-dd
+/* ===== 時段（使用快取） ===== */
+function normalizeDate(dateStr) {
   const d = new Date(dateStr);
-  dateStr = d.toISOString().slice(0, 10);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
-  console.log('🔍 選到的日期:', dateStr);
-  console.log('🔍 slotsCache keys:', Object.keys(slotsCache));
+async function fetchSlots(dateStr) {
+  dateStr = normalizeDate(dateStr); // 🔑 強制轉成 yyyy-MM-dd
+  console.log('[fetchSlots] 正規化日期:', dateStr, 'slots=', slotsCache[dateStr]);
 
   slotEl.disabled = true;
   slotEl.innerHTML = `<option value="">載入中...</option>`;
