@@ -420,47 +420,67 @@
       modelEl.disabled = false;
     }
 
-    /* ===== 時段（Apps Script） ===== */
-    async function fetchSlots(dateStr) {
-      slotEl.disabled = true; slotEl.innerHTML = `<option value="">載入中...</option>`;
-      const today = new Date();
-      const selectedDate = new Date(dateStr);
-      const isToday = selectedDate.setHours(0,0,0,0) === today.setHours(0,0,0,0);
-      try {
-        const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
-        const res = await fetch(url, { method: 'GET', mode: 'cors' });
-        const json = await res.json();
-        if (!json.success) throw new Error(json.message || '無法載入時段');
-        const slots = json.data || {};
-        let keys = Object.keys(slots).sort();
-        if (isToday) {
-          const now = new Date();
-          const currentMinutes = now.getHours() * 60 + now.getMinutes();
-          keys = keys.filter(k => {
-            const [hour, minute] = k.split(':').map(Number);
-            return hour * 60 + minute > currentMinutes + 10;
-          });
-        }
-        slotEl.innerHTML = '';
-        if (!keys.length){ slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`; slotEl.disabled = true; return; }
-        slotEl.appendChild(new Option('請選擇時段',''));
-  keys.forEach(k => {
-   const opt = new Option(`${k}（剩餘 ${slots[k]} 位）`, k);
-   if (slots[k] <= 0) {
-    opt.disabled = true; // 沒名額 → 灰掉不能選
-  }
-  slotEl.appendChild(opt);
-});
-if (allFull) {
+   /* ===== 時段（Apps Script） ===== */
+async function fetchSlots(dateStr) {
+  slotEl.disabled = true;
+  slotEl.innerHTML = `<option value="">載入中...</option>`;
+
+  const today = new Date();
+  const selectedDate = new Date(dateStr);
+  const isToday = selectedDate.setHours(0,0,0,0) === today.setHours(0,0,0,0);
+
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(dateStr)}`;
+    const res = await fetch(url, { method: 'GET', mode: 'cors' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || '無法載入時段');
+
+    const slots = json.data || {};
+    let keys = Object.keys(slots).sort();
+
+    // 🔹 過濾掉當天已經過去的時段
+    if (isToday) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      keys = keys.filter(k => {
+        const [hour, minute] = k.split(':').map(Number);
+        return hour * 60 + minute > currentMinutes + 10;
+      });
+    }
+
+    slotEl.innerHTML = '';
+    if (!keys.length) {
       slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
       slotEl.disabled = true;
       return;
     }
-        slotEl.disabled = false;
-      } catch (err) {
-        slotEl.innerHTML = `<option value="">無法載入時段</option>`; slotEl.disabled = true;
+
+    slotEl.appendChild(new Option('請選擇時段',''));
+
+    let allFull = true; // 🟢 必須先定義
+    keys.forEach(k => {
+      const opt = new Option(`${k}（剩餘 ${slots[k]} 位）`, k);
+      if (slots[k] <= 0) {
+        opt.disabled = true; // 沒名額 → 灰掉
+      } else {
+        allFull = false; // 有至少一個可用
       }
+      slotEl.appendChild(opt);
+    });
+
+    if (allFull) {
+      slotEl.innerHTML = `<option value="">當日已無可預約時段</option>`;
+      slotEl.disabled = true;
+      return;
     }
+
+    slotEl.disabled = false;
+  } catch (err) {
+    console.error('fetchSlots error:', err);
+    slotEl.innerHTML = `<option value="">無法載入時段</option>`;
+    slotEl.disabled = true;
+  }
+}
 
     /* ===== 啟用/禁用送出按鈕 ===== */
     agreeCheckbox.addEventListener('change', () => { submitBtn.disabled = !agreeCheckbox.checked; });
