@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" rel="stylesheet" />
+  <!-- ✅ 新增 Google reCAPTCHA v3 -->
+  <script src="https://www.google.com/recaptcha/api.js?render=6LcSotkrAAAAAN17wjVrzK3M0XmRG2HTiaovvTUD"></script>
   <style>
     /* ✅ 新增：通用 box-sizing 規則，避免 padding 影響排版 */
     *, *::before, *::after {
@@ -489,6 +491,8 @@
       submitBtn.disabled = true; submitBtn.textContent = '預約中...';
 
       try {
+          // ✅ 先取得 reCAPTCHA token
+        const token = await grecaptcha.execute('6LcSotkrAAAAAN17wjVrzK3M0XmRG2HTiaovvTUD', { action: 'reserve' });
         const params = new URLSearchParams(new FormData(form));
         params.set('action','reserve');
 
