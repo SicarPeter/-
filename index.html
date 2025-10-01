@@ -371,8 +371,7 @@ async function fetchClosedDaysAndInit() {
   // 初始化 DatePicker
   initPicker();
 
-  // 載入 slots 快取
-  await initSlotsCache();
+
 
   // 資料載完才啟用 DatePicker
   dateEl.disabled = false;
@@ -479,13 +478,37 @@ function normalizeDate(dateStr) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-/* ===== 依日期載入時段 ===== */
-function fetchSlots(dateStr) {
+/* ===== 依日期載入時段（單日 API + 短快取） ===== */
+async function fetchSlots(dateStr) {
   const normalizedDate = normalizeDate(dateStr);
-  const slots = slotsCache[normalizedDate] || {};
 
-  console.log('[fetchSlots] 輸入日期:', dateStr, 'slots:', slots);
+  // 先檢查 localStorage 快取
+  const CK = `slots:${normalizedDate}`;
+  const cached = LS.get(CK, 300); // 5 分鐘快取
+  if (cached) {
+    console.log('[fetchSlots] 使用快取:', normalizedDate, cached);
+    renderSlots(cached);
+    return;
+  }
 
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=slots&date=${encodeURIComponent(normalizedDate)}`);
+    const json = await res.json();
+    if (json.success && json.data) {
+      const slots = json.data || {};
+      LS.set(CK, slots);
+      renderSlots(slots);
+    } else {
+      renderSlots({});
+    }
+  } catch (err) {
+    console.error('fetchSlots error:', err);
+    renderSlots({});
+  }
+}
+
+/* ===== 渲染時段選單 ===== */
+function renderSlots(slots) {
   slotEl.innerHTML = '';
   let hasValid = false;
 
@@ -505,34 +528,7 @@ function fetchSlots(dateStr) {
   }
 }
 
-/* ===== 初始化：時段快取 ===== */
-async function initSlotsCache() {
-  try {
-    const cached = LS.get(SLOTS_CACHE_KEY, SLOTS_CACHE_TTL);
-    if (cached) {
-      slotsCache = cached;
-      console.log('%c[slotsCache] 使用 localStorage 快取', 'color: #4caf50; font-weight: bold;');
-      return;
-    }
 
-    const res = await fetch(`${APPS_SCRIPT_URL}?action=slots-range&range=30`);
-    const json = await res.json();
-    if (json.success && json.data) {
-      // 🔑 正規化所有 key
-      const normalized = {};
-      Object.keys(json.data).forEach(d => {
-        const nd = normalizeDate(d);
-        normalized[nd] = json.data[d];
-      });
-      slotsCache = normalized;
-
-      LS.set(SLOTS_CACHE_KEY, slotsCache);
-      console.log('%c[slotsCache] 已從後端更新 30 天時段', 'color: #2196f3; font-weight: bold;', slotsCache);
-    }
-  } catch (err) {
-    console.error('載入 slots-range 失敗', err);
-  }
-}
 
     /* ===== 啟用/禁用送出按鈕 ===== */
     agreeCheckbox.addEventListener('change', () => { submitBtn.disabled = !agreeCheckbox.checked; });
@@ -601,10 +597,11 @@ async function initSlotsCache() {
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
 
-         // ✅ 新增：清除快取並立即重抓當前日期
-        localStorage.removeItem(SLOTS_CACHE_KEY);
-        slotsCache = {};
-        if (dateEl.value) fetchSlots(dateEl.value);
+    // ✅ 新增：清除該日期快取並立即重抓最新時段
+      if (dateEl.value) {
+      const CK = `slots:${normalizeDate(dateEl.value)}`;
+      localStorage.removeItem(CK);
+      fetchSlots(dateEl.value);
           
         } else {
           throw new Error(data.message || '預約失敗');
