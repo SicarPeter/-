@@ -600,6 +600,12 @@ async function initSlotsCache() {
           submitBtn.disabled = true;
           slotEl.innerHTML = `<option value="">請先選擇日期</option>`; slotEl.disabled = true;
           modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; modelEl.disabled = true;
+
+         // ✅ 新增：清除快取並立即重抓當前日期
+        localStorage.removeItem(SLOTS_CACHE_KEY);
+        slotsCache = {};
+        if (dateEl.value) fetchSlots(dateEl.value);
+          
         } else {
           throw new Error(data.message || '預約失敗');
         }
