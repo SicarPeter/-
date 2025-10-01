@@ -364,9 +364,10 @@ async function fetchClosedDaysAndInit() {
   dateEl.placeholder = '請先選擇日期';
 }
 
-
-// ✅ 頁面載入時，執行這個
-fetchClosedDaysAndInit();
+/* ===== 頁面載入時，執行這些 ===== */
+fetchClosedDaysAndInit();  // 日期 & 時段快取
+initBrands();              // 廠牌 & 車款
+initYear();                // 年份
 
 
     /* ===== Local cache ===== */
