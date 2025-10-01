@@ -610,12 +610,17 @@ form.addEventListener('submit', async (e) => {
       modelEl.innerHTML = `<option value="">請先選擇廠牌</option>`; 
       modelEl.disabled = true;
 
-      // ✅ 清除該日期快取並立即重抓最新時段
-      if (dateEl.value) {
-        const CK = `slots:${normalizeDate(dateEl.value)}`;
-        localStorage.removeItem(CK);
-        fetchSlots(dateEl.value);
-      }
+// ✅ 送出成功後清掉所有 slots 快取
+Object.keys(localStorage).forEach(k => {
+  if (k.startsWith('slots:')) {
+    localStorage.removeItem(k);
+  }
+});
+
+// 使用者剛選的日期，強制重新抓最新時段
+if (dateEl.value) {
+  fetchSlots(dateEl.value);
+
 
     } else {
       throw new Error(data.message || '預約失敗');
