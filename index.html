@@ -385,12 +385,11 @@ initYear();                // 年份
         yearEl.appendChild(new Option(i, i));
       }
     }
-    initYear();
+   
 
 
 
     /* ===== 初始化：品牌 & 車款 ===== */
-    initBrands();
     async function initBrands(){
       brandEl.disabled = true; brandEl.innerHTML = '<option value="">載入中...</option>';
       const cached = LS.get('brands', 86400);
