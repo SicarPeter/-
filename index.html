@@ -306,11 +306,43 @@ const SLOTS_CACHE_TTL = 300; // 秒 (5分鐘)
     });
 
     /* ===== Date Picker ===== */
-    const today = new Date();
-    const max = new Date(); max.setMonth(max.getMonth() + 2);
-    let closedDays = [];
+const today = new Date();
+const max = new Date(); 
+max.setMonth(max.getMonth() + 2);
 
- async function fetchClosedDays() {
+let closedDays = [];
+let picker; // 提升變數作用域
+
+// ✅ 初始化日期選擇器，但先 disabled
+function initPicker() {
+  picker = new Litepicker({
+    element: dateEl,
+    singleMode: true,
+    lang: 'zh-TW',
+    format: 'YYYY-MM-DD',
+    minDate: today,
+    maxDate: max,
+    autoApply: true,
+    mobileFriendly: true,
+    lockDaysFilter: (date) => {
+      const day = date.getDay();
+      const dateStr = date.format('YYYY-MM-DD');
+      return day === 0 || day === 1 || closedDays.includes(dateStr);
+    },
+  });
+  picker.on('selected', (date) => {
+    const d = date ? date.format('YYYY-MM-DD') : '';
+    if (d) fetchSlots(d);
+  });
+
+  // 預設 disable，等資料載入完才啟用
+  dateEl.value = '';
+  dateEl.disabled = true;
+  dateEl.placeholder = '載入中…';
+}
+
+// ✅ 載入關閉日期 & 初始化快取
+async function fetchClosedDaysAndInit() {
   try {
     const res = await fetch(`${APPS_SCRIPT_URL}?action=closed-days`);
     const json = await res.json();
@@ -320,34 +352,48 @@ const SLOTS_CACHE_TTL = 300; // 秒 (5分鐘)
   } catch (err) {
     console.error('Failed to fetch closed days:', err);
   }
+
+  // 初始化 DatePicker
   initPicker();
-  initSlotsCache(); // ✅ 放這裡，確保 Picker 初始化後才載入時段快取
+
+  // 載入 slots 快取
+  await initSlotsCache();
+
+  // 資料載完才啟用 DatePicker
+  dateEl.disabled = false;
+  dateEl.placeholder = '請先選擇日期';
 }
 
-    function initPicker() {
-      picker = new Litepicker({ // ✅ 賦值給 picker
-        element: dateEl,
-        singleMode: true,
-        lang: 'zh-TW',
-        format: 'YYYY-MM-DD',
-        minDate: today, // ✅ 將 minDate 移回此處
-        maxDate: max,
-        autoApply: true,
-        mobileFriendly: true,
-        lockDaysFilter: (date) => {
-          const day = date.getDay();
-          const dateStr = date.format('YYYY-MM-DD');
-          // ✅ 禁止週日 (0) & 週一 (1) & 後端回傳的關閉日
-      return day === 0 || day === 1 || closedDays.includes(dateStr);
-        },
-      });
-      picker.on('selected', (date) => {
-        const d = date ? date.format('YYYY-MM-DD') : '';
-        if (d) fetchSlots(d);
-      });
+/* ===== 初始化：時段快取 ===== */
+async function initSlotsCache() {
+  try {
+    const cached = LS.get(SLOTS_CACHE_KEY, SLOTS_CACHE_TTL);
+    if (cached) {
+      slotsCache = cached;
+      console.log('%c[slotsCache] 使用 localStorage 快取', 'color: #4caf50; font-weight: bold;');
+      return;
     }
-    fetchClosedDays();
-    initSlotsCache(); // 頁面載入就先抓 30 天資料
+
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=slots-range&range=30`);
+    const json = await res.json();
+    if (json.success && json.data) {
+      const normalized = {};
+      Object.keys(json.data).forEach(d => {
+        const nd = normalizeDate(d);
+        normalized[nd] = json.data[d];
+      });
+      slotsCache = normalized;
+
+      LS.set(SLOTS_CACHE_KEY, slotsCache);
+      console.log('%c[slotsCache] 已從後端更新 30 天時段', 'color: #2196f3; font-weight: bold;', slotsCache);
+    }
+  } catch (err) {
+    console.error('載入 slots-range 失敗', err);
+  }
+}
+
+// ✅ 頁面載入時，執行這個
+fetchClosedDaysAndInit();
 
 
     /* ===== Local cache ===== */
