@@ -482,6 +482,10 @@ function normalizeDate(dateStr) {
 async function fetchSlots(dateStr) {
   const normalizedDate = normalizeDate(dateStr);
 
+   // 顯示載入中
+  slotEl.disabled = true;
+  slotEl.innerHTML = '<option value="">載入中，請稍等…</option>';
+
   // 先檢查 localStorage 快取
   const CK = `slots:${normalizedDate}`;
   const cached = LS.get(CK, 300); // 5 分鐘快取
@@ -503,15 +507,21 @@ async function fetchSlots(dateStr) {
     }
   } catch (err) {
     console.error('fetchSlots error:', err);
-    renderSlots({});
+   renderSlots({}, true); // 傳 true 表示錯誤
   }
 }
 
 /* ===== 渲染時段選單 ===== */
-function renderSlots(slots) {
+function renderSlots(slots, error = false) {
   slotEl.innerHTML = '';
-  let hasValid = false;
+  
+  if (error) {
+    slotEl.innerHTML = '<option value="">載入失敗，請稍後重試</option>';
+    slotEl.disabled = true;
+    return;
+  }
 
+  let hasValid = false;
   Object.entries(slots).forEach(([time, remaining]) => {
     if (remaining > 0) {
       const opt = new Option(`${time}（剩餘 ${remaining} 位）`, time);
