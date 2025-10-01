@@ -370,11 +370,6 @@ initBrands();              // 廠牌 & 車款
 initYear();                // 年份
 
 
-    /* ===== Local cache ===== */
-    const LS = {
-      get(k, sec){ try{ const v = JSON.parse(localStorage.getItem(k) || 'null'); if(!v) return null; if(sec && (Date.now() - v.t)/1000 > sec) return null; return v.v; }catch{return null} },
-      set(k, v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})) }
-    };
     
     /* ===== 初始化：年份 ===== */
     function initYear() {
@@ -387,6 +382,18 @@ initYear();                // 年份
     }
    
 
+/* ===== Local cache ===== */
+const LS = {
+  get(k, sec){ 
+    try{ 
+      const v = JSON.parse(localStorage.getItem(k) || 'null'); 
+      if(!v) return null; 
+      if(sec && (Date.now() - v.t)/1000 > sec) return null; 
+      return v.v; 
+    }catch{return null} 
+  },
+  set(k, v){ localStorage.setItem(k, JSON.stringify({t:Date.now(), v})) }
+};
 
 
     /* ===== 初始化：品牌 & 車款 ===== */
