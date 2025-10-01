@@ -364,33 +364,6 @@ async function fetchClosedDaysAndInit() {
   dateEl.placeholder = '請先選擇日期';
 }
 
-/* ===== 初始化：時段快取 ===== */
-async function initSlotsCache() {
-  try {
-    const cached = LS.get(SLOTS_CACHE_KEY, SLOTS_CACHE_TTL);
-    if (cached) {
-      slotsCache = cached;
-      console.log('%c[slotsCache] 使用 localStorage 快取', 'color: #4caf50; font-weight: bold;');
-      return;
-    }
-
-    const res = await fetch(`${APPS_SCRIPT_URL}?action=slots-range&range=30`);
-    const json = await res.json();
-    if (json.success && json.data) {
-      const normalized = {};
-      Object.keys(json.data).forEach(d => {
-        const nd = normalizeDate(d);
-        normalized[nd] = json.data[d];
-      });
-      slotsCache = normalized;
-
-      LS.set(SLOTS_CACHE_KEY, slotsCache);
-      console.log('%c[slotsCache] 已從後端更新 30 天時段', 'color: #2196f3; font-weight: bold;', slotsCache);
-    }
-  } catch (err) {
-    console.error('載入 slots-range 失敗', err);
-  }
-}
 
 // ✅ 頁面載入時，執行這個
 fetchClosedDaysAndInit();
@@ -497,7 +470,7 @@ function normalizeDate(dateStr) {
 
 /* ===== 依日期載入時段 ===== */
 function fetchSlots(dateStr) {
-  const normalizedDate = dateStr; // 直接用 YYYY-MM-DD
+  const normalizedDate = normalizeDate(dateStr);
   const slots = slotsCache[normalizedDate] || {};
 
   console.log('[fetchSlots] 輸入日期:', dateStr, 'slots:', slots);
